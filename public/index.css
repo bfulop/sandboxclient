@@ -12,3 +12,10 @@
   width: 540px;
   height: 540px;
 }
+
+
+iframe {
+  border: 1px dotted silver;
+  width: 100%;
+  height: calc(100vh - 100px);
+}

@@ -7,12 +7,25 @@
     "lint": "prettier --check \"src/**/*.{ts,js}\""
   },
   "dependencies": {
-    "canvas-confetti": "^1.2.0"
+    "@types/diff-match-patch": "^1.0.32",
+    "axios": "^0.21.1",
+    "canvas-confetti": "^1.2.0",
+    "diff-match-patch": "^1.0.5",
+    "fp-ts": "^2.9.5",
+    "fp-ts-contrib": "^0.1.21",
+    "fp-ts-rxjs": "^0.6.13",
+    "io-ts": "^2.2.14",
+    "io-ts-types": "^0.5.14",
+    "monocle-ts": "^2.3.5",
+    "nanohtml": "^1.9.1",
+    "nanomorph": "^5.4.3",
+    "rxjs": "^6.6.3"
   },
   "devDependencies": {
     "@snowpack/plugin-typescript": "^1.2.0",
     "@types/canvas-confetti": "^1.0.0",
     "@types/snowpack-env": "^2.3.2",
+    "http-proxy": "^1.18.1",
     "prettier": "^2.0.5",
     "snowpack": "^3.0.1",
     "typescript": "^4.0.0"
