@@ -12,8 +12,8 @@ import { UUID } from 'io-ts-types';
 import * as D from 'io-ts/Decoder'
 import DiffMatchPatch, { patch_obj } from 'diff-match-patch';
 import { webSocket } from 'rxjs/webSocket';
-import { of } from 'rxjs';
-import { startWith, pairwise, map as rMap, withLatestFrom, scan } from 'rxjs/operators';
+import { fromEvent, interval, of } from 'rxjs';
+import { startWith, pairwise, map as rMap, withLatestFrom, scan, windowWhen, take, mergeAll, throttle } from 'rxjs/operators';
 import type { Observable } from 'rxjs';
 import type { ObservableEither } from 'fp-ts-rxjs/es6/ObservableEither';
 import { filterMap, map as mapO } from 'fp-ts-rxjs/es6/Observable';
@@ -36,6 +36,16 @@ function patchDOM(domb: string, patches: Array<patch_obj>): E.Either<string, str
     return E.right(patched);
   }
 }
+
+const MouseMoved = D.type({
+  type: D.literal('mousemoved'),
+  payload: D.type({
+    x: D.number,
+    y: D.number,
+  })
+});
+
+type MouseMoved = D.TypeOf<typeof MouseMoved>
 
 const isPatch_Obj = (input: unknown): input is patch_obj => {
   if (
@@ -133,6 +143,17 @@ const toDiffEvents = (
     filterMap(O.fromEither)
   );
 
+const toMouseEvents = (stream: Observable<unknown>): Observable<MouseMoved> => 
+  F.pipe(
+  stream,
+  // mapO(a => {
+  //   console.log('haaa', a)
+  //   return a
+  // }),
+  mapO(a => MouseMoved.decode(a)),
+  filterMap(O.fromEither)
+)
+
 const startDOMEither = (startDOM: string): E.Either<string, string> => {
   if(startDOM.length) {
     return E.right(startDOM);
@@ -153,6 +174,16 @@ const renderUpdates = (startDOM: string) => (diffStream: Observable<DiffMessage>
 
 const startSocket = (payload: LoadedPage) => {
   const subject = webSocket(`ws://localhost:8088/${payload.id}`);
+  const iframeEvents = fromEvent<MessageEvent>(window, 'message');
+  const pointerLocal = document.getElementById('pointer-local');
+  const pointerRemote = document.getElementById('pointer-remote');
+  const iframeElement = document.getElementById('theiframe');
+  const offset = {
+    x: 10,
+    y: 130,
+  }
+  console.log('theoffset', offset);
+  
   // subject.subscribe(
   //   (msg) => console.dir(msg, {depth: 4}), // Called whenever there is a message from the server.
   //   (err) => console.log(err), // Called if at any point WebSocket API signals some kind of error.
@@ -173,7 +204,7 @@ const startSocket = (payload: LoadedPage) => {
 
   domDiffFlow.subscribe(
     (msg) => {
-      console.log('render cycle finished', msg);
+      // console.log('render cycle finished', msg);
       F.pipe(
         msg,
         E.map(() => subject.next({ type: 'DOMpatched' }))
@@ -183,13 +214,76 @@ const startSocket = (payload: LoadedPage) => {
     () => console.log('DOMs complete'), // Called when connection is closed (for whatever reason).
   );
 
+  const mouseMoves = F.pipe(
+    iframeEvents,
+    throttle(() => interval(300)),
+    rMap(e => e.data),
+    toMouseEvents,
+    // rMap(e => {
+    //   return {...e, payload: {
+    //     x: e.payload.x - offset.x,
+    //     y: e.payload.y - offset.y,
+    //   }}
+    // })
+  )
+
+  const mouseFlow = F.pipe(
+    subject,
+    toMouseEvents,
+  )
+
+  mouseFlow.subscribe(e => {
+    pointerLocal.style.left = `${e.payload.x}px`;
+    pointerLocal.style.top = `${e.payload.y}px`;
+  });
+
+  const mouseLoop = mouseMoves.pipe(
+    windowWhen(() => mouseFlow),
+    rMap(win => win.pipe(take(1))),
+    mergeAll()
+  );
+
+  mouseLoop.subscribe(e => {
+    pointerRemote.style.left = `${e.payload.x}px`;
+    pointerRemote.style.top = `${e.payload.y}px`;
+  });
+
+  // mouseFlow.subscribe(e => {
+  //   console.log('mouseMoves', e);
+  // });
+
+  mouseLoop.subscribe(e => {
+    subject.next({ type: 'mousemove', x: e.payload.x, y: e.payload.y });
+  });
+
+  setTimeout(() => {
+    subject.next({ type: 'mousemove', x: 100, y: 120 });
+  }, 1000)
+
   subject.next({message: { type: 'listeningToDOMDiffs' }})
 };
+
+const instertBridge = (htmlstring: string) => {
+  return htmlstring.replace('</body>', `
+    <script>
+    let timer = null;
+    function resetTimer() {
+      timer = null;
+    }
+    document.addEventListener('mousemove', (e) => {
+    if (timer === null) {
+        timer = setTimeout(resetTimer, 20);
+window.top.postMessage({ type: 'mousemoved', payload: { x: e.clientX, y: e.clientY }});
+    }
+    })
+    </script>
+    </body>`)
+}
 
 const workflow = () =>
   F.pipe(
     TE.bindTo('connection')(getPage),
-    TE.bind('iframe', ({ connection }) => insertIframe(connection.DOMString)),
+    TE.bind('iframe', ({ connection }) => F.pipe(connection.DOMString, instertBridge, insertIframe)),
     TE.map(({ connection }) => startSocket(connection)),
     TE.mapLeft(console.error),
   )();
