@@ -172,6 +172,7 @@ const renderUpdates = (startDOM: string) => (diffStream: Observable<DiffMessage>
   }, startDOMEither(startDOM))
 )
 
+// TODO everything here should be moved to a "next step" that uses the setup environment
 const startSocket = (payload: LoadedPage) => {
   const subject = webSocket(`ws://localhost:8088/${payload.id}`);
   const iframeEvents = fromEvent<MessageEvent>(window, 'message');
@@ -179,8 +180,8 @@ const startSocket = (payload: LoadedPage) => {
   const pointerRemote = document.getElementById('pointer-remote');
   const iframeElement = document.getElementById('theiframe');
   const offset = {
-    x: 10,
-    y: 130,
+    x: iframeElement.offsetLeft,
+    y: iframeElement.offsetTop,
   }
   console.log('theoffset', offset);
   
@@ -216,36 +217,36 @@ const startSocket = (payload: LoadedPage) => {
 
   const mouseMoves = F.pipe(
     iframeEvents,
-    throttle(() => interval(300)),
+    // throttle(() => interval(300)),
     rMap(e => e.data),
     toMouseEvents,
     // rMap(e => {
     //   return {...e, payload: {
-    //     x: e.payload.x - offset.x,
-    //     y: e.payload.y - offset.y,
+    //     x: e.payload.x + offset.x,
+    //     y: e.payload.y + offset.y,
     //   }}
     // })
   )
 
-  const mouseFlow = F.pipe(
+  const mouseServerStream = F.pipe(
     subject,
     toMouseEvents,
   )
 
-  mouseFlow.subscribe(e => {
+  mouseServerStream.subscribe(e => {
     pointerLocal.style.left = `${e.payload.x}px`;
-    pointerLocal.style.top = `${e.payload.y}px`;
+    pointerLocal.style.top = `${e.payload.y + offset.y}px`;
   });
 
   const mouseLoop = mouseMoves.pipe(
-    windowWhen(() => mouseFlow),
+    windowWhen(() => mouseServerStream),
     rMap(win => win.pipe(take(1))),
     mergeAll()
   );
 
   mouseLoop.subscribe(e => {
     pointerRemote.style.left = `${e.payload.x}px`;
-    pointerRemote.style.top = `${e.payload.y}px`;
+    pointerRemote.style.top = `${e.payload.y + offset.y}px`;
   });
 
   // mouseFlow.subscribe(e => {
@@ -272,7 +273,7 @@ const instertBridge = (htmlstring: string) => {
     }
     document.addEventListener('mousemove', (e) => {
     if (timer === null) {
-        timer = setTimeout(resetTimer, 20);
+        timer = setTimeout(resetTimer, 41);
 window.top.postMessage({ type: 'mousemoved', payload: { x: e.clientX, y: e.clientY }});
     }
     })

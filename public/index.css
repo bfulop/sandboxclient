@@ -1,6 +1,17 @@
 body {
+  font-family: "Iosevka-Fixed-SS09";
+  background-color: #edebe9;
   position: relative;
   margin: 0;
+}
+
+#editorchrome {
+  height: 60px;
+  overflow: hidden;
+}
+
+#editorchrome h4 {
+  text-align: center;
 }
 
 #img {
@@ -30,6 +41,7 @@ body {
 
 iframe {
   border: 1px dotted silver;
+  border-top: 2px solid #535f71;
   width: 100%;
   height: calc(100vh - 100px);
 }
