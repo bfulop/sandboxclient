@@ -11,7 +11,7 @@ import * as IOT from 'io-ts';
 import { UUID } from 'io-ts-types';
 import * as D from 'io-ts/Decoder'
 import DiffMatchPatch, { patch_obj } from 'diff-match-patch';
-import { webSocket } from 'rxjs/webSocket';
+import { webSocket, WebSocketSubject } from 'rxjs/webSocket';
 import { fromEvent, interval, of } from 'rxjs';
 import { startWith, pairwise, map as rMap, withLatestFrom, scan, windowWhen, take, mergeAll, throttle } from 'rxjs/operators';
 import type { Observable } from 'rxjs';
@@ -20,22 +20,7 @@ import { filterMap, map as mapO } from 'fp-ts-rxjs/es6/Observable';
 import { map as mapOE, chain as chainOE } from 'fp-ts-rxjs/es6/ObservableEither';
 import morph from 'nanomorph';
 import nanohtml from 'nanohtml';
-
-const parser = new DOMParser();
-
-export function parseToDOM(contents: string) {
-  return parser.parseFromString(contents, 'text/html');
-}
-const diffEngine = new DiffMatchPatch.diff_match_patch();
-
-function patchDOM(domb: string, patches: Array<patch_obj>): E.Either<string, string> {
-  const [patched, results] = diffEngine.patch_apply(patches, domb);
-  if (results.indexOf(false) > -1) {
-    return E.left('Could not patch')
-  } else {
-    return E.right(patched);
-  }
-}
+import { domDiffFlow } from './streamsLoop';
 
 const MouseMoved = D.type({
   type: D.literal('mousemoved'),
@@ -47,33 +32,8 @@ const MouseMoved = D.type({
 
 type MouseMoved = D.TypeOf<typeof MouseMoved>
 
-const isPatch_Obj = (input: unknown): input is patch_obj => {
-  if (
-    input &&
-    typeof input === 'object' &&
-    input.hasOwnProperty('diffs') &&
-    input.hasOwnProperty('start1') &&
-    input.hasOwnProperty('start2') &&
-    input.hasOwnProperty('length1') &&
-    input.hasOwnProperty('length2')
-  ) {
-    return true;
-  }
-  return false;
-};
-
-const patchDecode: D.Decoder<unknown, patch_obj> = {
-  decode: u => isPatch_Obj(u) ? D.success(u) : D.failure(u, 'patchobj')
-}
-
-const DiffPatchArray: D.Decoder<unknown, Array<patch_obj>> = D.array(patchDecode);
-
-const DiffMessage = D.type({
-  type: D.literal('diff'),
-  payload: DiffPatchArray
-})
-
-type DiffMessage = D.TypeOf<typeof DiffMessage>
+// const HandledMessages = D.union(DiffMessage, MouseMoved);
+// type HandledMessages = D.TypeOf<typeof HandledMessages>
 
 const loadedPage = IOT.type({
   id: UUID,
@@ -118,7 +78,7 @@ const getIframeElement = (): IO.IO<HTMLIFrameElement> =>
 
 const addIframeContents = (contents: string) => (
   iframe: HTMLIFrameElement,
-): IOE.IOEither<Error, HTMLElement> =>
+): IOE.IOEither<Error, HTMLIFrameElement> =>
   IOE.tryCatch(
     () => {
       iframe.srcdoc = contents;
@@ -134,137 +94,120 @@ const insertIframe = (domString: string) =>
     TE.fromIOEither,
   );
 
-const toDiffEvents = (
-  stream: Observable<unknown>
-): Observable<DiffMessage> =>
-  F.pipe(
-    stream,
-    mapO(a => DiffMessage.decode(a)),
-    filterMap(O.fromEither)
-  );
-
 const toMouseEvents = (stream: Observable<unknown>): Observable<MouseMoved> => 
   F.pipe(
   stream,
-  // mapO(a => {
-  //   console.log('haaa', a)
-  //   return a
-  // }),
   mapO(a => MouseMoved.decode(a)),
   filterMap(O.fromEither)
 )
 
-const startDOMEither = (startDOM: string): E.Either<string, string> => {
-  if(startDOM.length) {
-    return E.right(startDOM);
-  } else {
-    return E.left('invalid startDOM');
-  }
+
+const serverSocket = (payload: LoadedPage): IO.IO<WebSocketSubject<unknown>> => ()  => {
+  const subject = webSocket(`ws://localhost:8088/${payload.id}`);
+  subject.subscribe(
+    (msg) => {console.log('message', msg)},
+    (err) => console.log(err), // Called if at any point WebSocket API signals some kind of error.
+    () => console.log('subject complete'), // Called when connection is closed (for whatever reason).
+  );
+  subject.next({message: { type: 'listeningToDOMDiffs' }})
+  return subject;
 }
 
-const renderUpdates = (startDOM: string) => (diffStream: Observable<DiffMessage>) => F.pipe(
-  diffStream,
-  scan((domEither, diffs) => {
-    return F.pipe(
-      domEither,
-      E.chain(d => patchDOM(d, diffs.payload))
-    )
-  }, startDOMEither(startDOM))
-)
+const iframeMessages = () => fromEvent<MessageEvent>(window, 'message');
 
 // TODO everything here should be moved to a "next step" that uses the setup environment
-const startSocket = (payload: LoadedPage) => {
-  const subject = webSocket(`ws://localhost:8088/${payload.id}`);
-  const iframeEvents = fromEvent<MessageEvent>(window, 'message');
-  const pointerLocal = document.getElementById('pointer-local');
-  const pointerRemote = document.getElementById('pointer-remote');
-  const iframeElement = document.getElementById('theiframe');
-  const offset = {
-    x: iframeElement.offsetLeft,
-    y: iframeElement.offsetTop,
-  }
-  console.log('theoffset', offset);
-  
-  // subject.subscribe(
-  //   (msg) => console.dir(msg, {depth: 4}), // Called whenever there is a message from the server.
-  //   (err) => console.log(err), // Called if at any point WebSocket API signals some kind of error.
-  //   () => console.log('subject complete'), // Called when connection is closed (for whatever reason).
-  // );
+// const startSocket = (payload: LoadedPage) => {
+//   const subject = webSocket(`ws://localhost:8088/${payload.id}`);
+//   const iframeEvents = fromEvent<MessageEvent>(window, 'message');
+//   const pointerLocal = document.getElementById('pointer-local');
+//   const pointerRemote = document.getElementById('pointer-remote');
+//   const iframeElement = document.getElementById('theiframe');
+//   const offset = {
+//     x: iframeElement.offsetLeft,
+//     y: iframeElement.offsetTop,
+//   }
+//   console.log('theoffset', offset);
+//   
+//   // subject.subscribe(
+//   //   (msg) => console.dir(msg, {depth: 4}), // Called whenever there is a message from the server.
+//   //   (err) => console.log(err), // Called if at any point WebSocket API signals some kind of error.
+//   //   () => console.log('subject complete'), // Called when connection is closed (for whatever reason).
+//   // );
+//
+//   const domDiffFlow = F.pipe(
+//     subject, 
+//     toDiffEvents,
+//     renderUpdates(payload.DOMString),
+//     mapOE(
+//       (msg) => F.pipe(
+//           getIframeElement(),
+//           i => morph(i().contentDocument, parseToDOM(msg))
+//         )
+//     )
+//   );
+//
+//   domDiffFlow.subscribe(
+//     (msg) => {
+//       // console.log('render cycle finished', msg);
+//       F.pipe(
+//         msg,
+//         E.map(() => subject.next({ type: 'DOMpatched' }))
+//       )
+//     }, // Called whenever there is a message from the server.
+//     (err) => console.log(err), // Called if at any point WebSocket API signals some kind of error.
+//     () => console.log('DOMs complete'), // Called when connection is closed (for whatever reason).
+//   );
+//
+//   const mouseMoves = F.pipe(
+//     iframeEvents,
+//     // throttle(() => interval(300)),
+//     rMap(e => e.data),
+//     toMouseEvents,
+//     // rMap(e => {
+//     //   return {...e, payload: {
+//     //     x: e.payload.x + offset.x,
+//     //     y: e.payload.y + offset.y,
+//     //   }}
+//     // })
+//   )
+//
+//   const mouseServerStream = F.pipe(
+//     subject,
+//     toMouseEvents,
+//   )
+//
+//   mouseServerStream.subscribe(e => {
+//     pointerLocal.style.left = `${e.payload.x}px`;
+//     pointerLocal.style.top = `${e.payload.y + offset.y}px`;
+//   });
+//
+//   const mouseLoop = mouseMoves.pipe(
+//     windowWhen(() => mouseServerStream),
+//     rMap(win => win.pipe(take(1))),
+//     mergeAll()
+//   );
+//
+//   mouseLoop.subscribe(e => {
+//     pointerRemote.style.left = `${e.payload.x}px`;
+//     pointerRemote.style.top = `${e.payload.y + offset.y}px`;
+//   });
+//
+//   // mouseFlow.subscribe(e => {
+//   //   console.log('mouseMoves', e);
+//   // });
+//
+//   mouseLoop.subscribe(e => {
+//     subject.next({ type: 'mousemove', x: e.payload.x, y: e.payload.y });
+//   });
+//
+//   setTimeout(() => {
+//     subject.next({ type: 'mousemove', x: 100, y: 120 });
+//   }, 1000)
+//
+//   subject.next({message: { type: 'listeningToDOMDiffs' }})
+// };
 
-  const domDiffFlow = F.pipe(
-    subject, 
-    toDiffEvents,
-    renderUpdates(payload.DOMString),
-    mapOE(
-      (msg) => F.pipe(
-          getIframeElement(),
-          i => morph(i().contentDocument, parseToDOM(msg))
-        )
-    )
-  );
-
-  domDiffFlow.subscribe(
-    (msg) => {
-      // console.log('render cycle finished', msg);
-      F.pipe(
-        msg,
-        E.map(() => subject.next({ type: 'DOMpatched' }))
-      )
-    }, // Called whenever there is a message from the server.
-    (err) => console.log(err), // Called if at any point WebSocket API signals some kind of error.
-    () => console.log('DOMs complete'), // Called when connection is closed (for whatever reason).
-  );
-
-  const mouseMoves = F.pipe(
-    iframeEvents,
-    // throttle(() => interval(300)),
-    rMap(e => e.data),
-    toMouseEvents,
-    // rMap(e => {
-    //   return {...e, payload: {
-    //     x: e.payload.x + offset.x,
-    //     y: e.payload.y + offset.y,
-    //   }}
-    // })
-  )
-
-  const mouseServerStream = F.pipe(
-    subject,
-    toMouseEvents,
-  )
-
-  mouseServerStream.subscribe(e => {
-    pointerLocal.style.left = `${e.payload.x}px`;
-    pointerLocal.style.top = `${e.payload.y + offset.y}px`;
-  });
-
-  const mouseLoop = mouseMoves.pipe(
-    windowWhen(() => mouseServerStream),
-    rMap(win => win.pipe(take(1))),
-    mergeAll()
-  );
-
-  mouseLoop.subscribe(e => {
-    pointerRemote.style.left = `${e.payload.x}px`;
-    pointerRemote.style.top = `${e.payload.y + offset.y}px`;
-  });
-
-  // mouseFlow.subscribe(e => {
-  //   console.log('mouseMoves', e);
-  // });
-
-  mouseLoop.subscribe(e => {
-    subject.next({ type: 'mousemove', x: e.payload.x, y: e.payload.y });
-  });
-
-  setTimeout(() => {
-    subject.next({ type: 'mousemove', x: 100, y: 120 });
-  }, 1000)
-
-  subject.next({message: { type: 'listeningToDOMDiffs' }})
-};
-
-const instertBridge = (htmlstring: string) => {
+const insertBridge = (htmlstring: string) => {
   return htmlstring.replace('</body>', `
     <script>
     let timer = null;
@@ -281,12 +224,27 @@ window.top.postMessage({ type: 'mousemoved', payload: { x: e.clientX, y: e.clien
     </body>`)
 }
 
-const workflow = () =>
+export interface Environment {
+  connection: LoadedPage,
+  iframe: HTMLIFrameElement,
+  ws: WebSocketSubject<unknown>,
+  iframeMessages: Observable<MessageEvent<unknown>>
+}
+
+const envSetup: TE.TaskEither<Error, Environment> = () =>
   F.pipe(
     TE.bindTo('connection')(getPage),
-    TE.bind('iframe', ({ connection }) => F.pipe(connection.DOMString, instertBridge, insertIframe)),
-    TE.map(({ connection }) => startSocket(connection)),
-    TE.mapLeft(console.error),
+    TE.bind('iframe', ({ connection }) => F.pipe(connection.DOMString, insertBridge, insertIframe)),
+    TE.bind('ws', ({ connection }) => TE.fromIO(serverSocket(connection))),
+    TE.bind('iframeMessages', () => TE.fromIO(iframeMessages))
+    // TE.map(({ connection }) => startSocket(connection)),
+    // TE.mapLeft(console.error),
   )();
 
-workflow();
+const mainflow = F.pipe(
+  envSetup,
+  // TE.map(e => e)
+  TE.map(domDiffFlow())
+)
+
+mainflow();
