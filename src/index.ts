@@ -5,6 +5,10 @@ import {
   option as O,
   io as IO,
   ioEither as IOE,
+  reader as R,
+  readerEither as RE,
+  readerTaskEither as RTE,
+  task as T,
 } from 'fp-ts';
 import axios, { AxiosResponse } from 'axios';
 import * as IOT from 'io-ts';
@@ -20,17 +24,8 @@ import { filterMap, map as mapO } from 'fp-ts-rxjs/es6/Observable';
 import { map as mapOE, chain as chainOE } from 'fp-ts-rxjs/es6/ObservableEither';
 import morph from 'nanomorph';
 import nanohtml from 'nanohtml';
-import { domDiffFlow } from './streamsLoop';
-
-const MouseMoved = D.type({
-  type: D.literal('mousemoved'),
-  payload: D.type({
-    x: D.number,
-    y: D.number,
-  })
-});
-
-type MouseMoved = D.TypeOf<typeof MouseMoved>
+import { domDiffFlow } from './domDiffs';
+import { mouseMovementsFlow } from './mouseMoves';
 
 // const HandledMessages = D.union(DiffMessage, MouseMoved);
 // type HandledMessages = D.TypeOf<typeof HandledMessages>
@@ -67,13 +62,13 @@ const getElement = (id: string): IOE.IOEither<Error, HTMLElement> => () =>
     E.fromOption(() => new Error(String('could not find element'))),
   );
 
-const getIframeElement = (): IO.IO<HTMLIFrameElement> => 
+const getIframeElement = (): IO.IO<HTMLIFrameElement> =>
   F.flow(
     () => O.fromNullable(document.getElementsByTagName('iframe')[0]),
     O.getOrElse(() => {
-     document.body.insertAdjacentHTML('beforeend', '<iframe id="theiframe"></iframe>');
-     return document.getElementsByTagName('iframe')[0];
-  })
+      document.body.insertAdjacentHTML('beforeend', '<iframe id="theiframe"></iframe>');
+      return document.getElementsByTagName('iframe')[0];
+    })
   );
 
 const addIframeContents = (contents: string) => (
@@ -94,118 +89,18 @@ const insertIframe = (domString: string) =>
     TE.fromIOEither,
   );
 
-const toMouseEvents = (stream: Observable<unknown>): Observable<MouseMoved> => 
-  F.pipe(
-  stream,
-  mapO(a => MouseMoved.decode(a)),
-  filterMap(O.fromEither)
-)
-
-
-const serverSocket = (payload: LoadedPage): IO.IO<WebSocketSubject<unknown>> => ()  => {
+const serverSocket = (payload: LoadedPage): IO.IO<WebSocketSubject<unknown>> => () => {
   const subject = webSocket(`ws://localhost:8088/${payload.id}`);
-  subject.subscribe(
-    (msg) => {console.log('message', msg)},
-    (err) => console.log(err), // Called if at any point WebSocket API signals some kind of error.
-    () => console.log('subject complete'), // Called when connection is closed (for whatever reason).
-  );
-  subject.next({message: { type: 'listeningToDOMDiffs' }})
+  // subject.subscribe(
+  //   (msg) => { console.log('message', msg) },
+  //   (err) => console.log(err), // Called if at any point WebSocket API signals some kind of error.
+  //   () => console.log('subject complete'), // Called when connection is closed (for whatever reason).
+  // );
+  subject.next({ message: { type: 'listeningToDOMDiffs' } })
   return subject;
 }
 
 const iframeMessages = () => fromEvent<MessageEvent>(window, 'message');
-
-// TODO everything here should be moved to a "next step" that uses the setup environment
-// const startSocket = (payload: LoadedPage) => {
-//   const subject = webSocket(`ws://localhost:8088/${payload.id}`);
-//   const iframeEvents = fromEvent<MessageEvent>(window, 'message');
-//   const pointerLocal = document.getElementById('pointer-local');
-//   const pointerRemote = document.getElementById('pointer-remote');
-//   const iframeElement = document.getElementById('theiframe');
-//   const offset = {
-//     x: iframeElement.offsetLeft,
-//     y: iframeElement.offsetTop,
-//   }
-//   console.log('theoffset', offset);
-//   
-//   // subject.subscribe(
-//   //   (msg) => console.dir(msg, {depth: 4}), // Called whenever there is a message from the server.
-//   //   (err) => console.log(err), // Called if at any point WebSocket API signals some kind of error.
-//   //   () => console.log('subject complete'), // Called when connection is closed (for whatever reason).
-//   // );
-//
-//   const domDiffFlow = F.pipe(
-//     subject, 
-//     toDiffEvents,
-//     renderUpdates(payload.DOMString),
-//     mapOE(
-//       (msg) => F.pipe(
-//           getIframeElement(),
-//           i => morph(i().contentDocument, parseToDOM(msg))
-//         )
-//     )
-//   );
-//
-//   domDiffFlow.subscribe(
-//     (msg) => {
-//       // console.log('render cycle finished', msg);
-//       F.pipe(
-//         msg,
-//         E.map(() => subject.next({ type: 'DOMpatched' }))
-//       )
-//     }, // Called whenever there is a message from the server.
-//     (err) => console.log(err), // Called if at any point WebSocket API signals some kind of error.
-//     () => console.log('DOMs complete'), // Called when connection is closed (for whatever reason).
-//   );
-//
-//   const mouseMoves = F.pipe(
-//     iframeEvents,
-//     // throttle(() => interval(300)),
-//     rMap(e => e.data),
-//     toMouseEvents,
-//     // rMap(e => {
-//     //   return {...e, payload: {
-//     //     x: e.payload.x + offset.x,
-//     //     y: e.payload.y + offset.y,
-//     //   }}
-//     // })
-//   )
-//
-//   const mouseServerStream = F.pipe(
-//     subject,
-//     toMouseEvents,
-//   )
-//
-//   mouseServerStream.subscribe(e => {
-//     pointerLocal.style.left = `${e.payload.x}px`;
-//     pointerLocal.style.top = `${e.payload.y + offset.y}px`;
-//   });
-//
-//   const mouseLoop = mouseMoves.pipe(
-//     windowWhen(() => mouseServerStream),
-//     rMap(win => win.pipe(take(1))),
-//     mergeAll()
-//   );
-//
-//   mouseLoop.subscribe(e => {
-//     pointerRemote.style.left = `${e.payload.x}px`;
-//     pointerRemote.style.top = `${e.payload.y + offset.y}px`;
-//   });
-//
-//   // mouseFlow.subscribe(e => {
-//   //   console.log('mouseMoves', e);
-//   // });
-//
-//   mouseLoop.subscribe(e => {
-//     subject.next({ type: 'mousemove', x: e.payload.x, y: e.payload.y });
-//   });
-//
-//   setTimeout(() => {
-//     subject.next({ type: 'mousemove', x: 100, y: 120 });
-//   }, 1000)
-//
-//   subject.next({message: { type: 'listeningToDOMDiffs' }})
-// };
 
 const insertBridge = (htmlstring: string) => {
   return htmlstring.replace('</body>', `
@@ -231,20 +126,67 @@ export interface Environment {
   iframeMessages: Observable<MessageEvent<unknown>>
 }
 
-const envSetup: TE.TaskEither<Error, Environment> = () =>
+const envSetup : TE.TaskEither<Error, Environment> =
   F.pipe(
     TE.bindTo('connection')(getPage),
     TE.bind('iframe', ({ connection }) => F.pipe(connection.DOMString, insertBridge, insertIframe)),
     TE.bind('ws', ({ connection }) => TE.fromIO(serverSocket(connection))),
     TE.bind('iframeMessages', () => TE.fromIO(iframeMessages))
-    // TE.map(({ connection }) => startSocket(connection)),
-    // TE.mapLeft(console.error),
-  )();
+  );
 
-const mainflow = F.pipe(
-  envSetup,
-  // TE.map(e => e)
-  TE.map(domDiffFlow())
+//
+// type DoReader = (s: string) => R.Reader<Environment, string>
+// const doReader: DoReader = (s: string) => R.asks(e => (s + e.connection.id))
+//
+// type Myread =  R.Reader<Environment, string>
+// const myread: Myread =  R.asks(e => (e.connection.DOMString.toUpperCase()))
+//
+//
+// type LocalMouseMock =  R.Reader<Environment, Observable<number>>
+// const localMouseMock: LocalMouseMock = R.asks(env => {
+//   return of(3);
+// });
+//
+// type RemoteMouseMock = (s: Observable<number>) => R.Reader<Environment, Observable<string>>
+// const remoteMouseMock: RemoteMouseMock = (s) => R.asks(env => {
+//   return of('remote')
+// })
+//
+// type RemoteMouseDo = (s: {localMouse: Observable<number>}) => R.Reader<Environment, Observable<string>>
+// const remoteMouseDo: RemoteMouseDo = (s) => R.asks(env => {
+//   return of('remote')
+// })
+//
+// type MouseProgram =  R.Reader<Environment, Observable<string>>
+// const mouseProgram: MouseProgram = F.pipe(
+//   localMouseMock,
+//   R.chain(e => remoteMouseMock(e))
+// )
+//
+// const mouseAsDo = F.pipe(
+//   R.bindTo('localMouse')(localMouseMock),
+//   R.bind('remoteMouse', remoteMouseDo)
+// )
+
+type Readerflow = R.Reader<Environment, Observable<string>>
+const program = F.pipe(
+  domDiffFlow,
+  R.chain(() => mouseMovementsFlow)
 )
 
-mainflow();
+const mainApp = F.pipe(
+  envSetup,
+  TE.map(program)
+)
+
+// launch the program
+F.pipe(
+  mainApp,
+  T.map(
+    E.fold(
+      console.error,
+      console.log
+    )
+  ),
+  invokeTask => invokeTask()
+)

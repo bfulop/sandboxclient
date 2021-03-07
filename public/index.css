@@ -27,6 +27,7 @@ body {
   position: absolute;
   left: 0;
   top: 0;
+  transform: translateY(60px);
   background-color: silver;
   width: 10px;
   height: 10px;

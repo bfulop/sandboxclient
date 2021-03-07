@@ -6,6 +6,7 @@ import {
   io as IO,
   ioEither as IOE,
   reader as R,
+  readerEither as RE,
 } from 'fp-ts';
 import axios, { AxiosResponse } from 'axios';
 import * as IOT from 'io-ts';
@@ -54,16 +55,15 @@ export const DiffMessage = D.type({
 
 export type DiffMessage = D.TypeOf<typeof DiffMessage>
 
-type toDiffvents = () => R.Reader<Environment, Observable<DiffMessage>>
-const toDiffEvents: toDiffvents = () => (env) =>
+type ToDiffvents =  R.Reader<Environment, Observable<DiffMessage>>
+const toDiffEvents: ToDiffvents =  R.asks((env) =>
   F.pipe(
     env,
-    () => {
-    console.log('imhere')
-    return env.ws},
+    () => env.ws,
     mapO(a => DiffMessage.decode(a)),
     filterMap(O.fromEither),
-  );
+  )
+)
 
 
 export function parseToDOM(contents: string) {
@@ -88,25 +88,30 @@ const startDOMEither = (startDOM: string): E.Either<string, string> => {
   }
 }
 
-type renderUpdates = (diffStream: Observable<DiffMessage>) => R.Reader<Environment, ObservableEither<string, string>>
-const renderUpdates: renderUpdates = (diffStream: Observable<DiffMessage>) => (env: Environment) => F.pipe(
-  diffStream,
-  scan((domEither, diffs) => {
-    return F.pipe(
-      domEither,
-      E.chain(d => patchString(d, diffs.payload))
-    )
-  }, startDOMEither(env.connection.DOMString)),
-)
+type RenderUpdates = (
+  diffStream: Observable<DiffMessage>,
+) => R.Reader<Environment, ObservableEither<string, string>>;
+const renderUpdates: RenderUpdates = (diffStream: Observable<DiffMessage>) =>
+  R.asks((env: Environment) =>
+    F.pipe(
+      diffStream,
+      scan((domEither, diffs) => {
+        return F.pipe(
+          domEither,
+          E.chain((d) => patchString(d, diffs.payload)),
+        );
+      }, startDOMEither(env.connection.DOMString)),
+    ),
+  );
 
-type updateIframe = (domStrings: ObservableEither<string, string>) => R.Reader<Environment, ObservableEither<string, unknown>>
-const updateIframe: updateIframe = (domStrings) => (env) => F.pipe(
+type UpdateIframe = (domStrings: ObservableEither<string, string>) => R.Reader<Environment, ObservableEither<string, unknown>>
+const updateIframe: UpdateIframe = (domStrings) => R.asks((env) => F.pipe(
   domStrings,
   mapOE(s => morph(env.iframe.contentDocument, parseToDOM(s)))
-)
+))
 
-type notifyServer = (results: ObservableEither<string, unknown>) => R.Reader<Environment, ObservableEither<string, unknown>>
-const notifyServer: notifyServer = (results) => (env) =>
+type NotifyServer = (results: ObservableEither<string, unknown>) => R.Reader<Environment, ObservableEither<string, unknown>>
+const notifyServer: NotifyServer = (results) => R.asks((env) =>
   F.pipe(results, (r) => {
     r.subscribe((e) =>
       F.pipe(
@@ -121,14 +126,12 @@ const notifyServer: notifyServer = (results) => (env) =>
       ),
     );
     return r;
-  });
+  }));
 
-// type 
-
-export const domDiffFlow = (env: Environment) => F.pipe(
-  env,
+export type DomDiffFlow = R.Reader<Environment, ObservableEither<string, unknown>>
+export const domDiffFlow: DomDiffFlow = F.pipe(
   toDiffEvents,
   R.chain(renderUpdates),
   R.chain(updateIframe),
   R.chain(notifyServer)
-);
+)
