@@ -26,6 +26,7 @@ import morph from 'nanomorph';
 import nanohtml from 'nanohtml';
 import { domDiffFlow } from './domDiffs';
 import { mouseMovementsFlow } from './mouseMoves';
+import { mouseClicksFlow } from './mouseclicks';
 
 // const HandledMessages = D.union(DiffMessage, MouseMoved);
 // type HandledMessages = D.TypeOf<typeof HandledMessages>
@@ -99,7 +100,6 @@ const serverSocket = (payload: LoadedPage): IO.IO<WebSocketSubject<unknown>> => 
   subject.next({ message: { type: 'listeningToDOMDiffs' } })
   return subject;
 }
-
 const iframeMessages = () => fromEvent<MessageEvent>(window, 'message');
 
 const insertBridge = (htmlstring: string) => {
@@ -123,7 +123,8 @@ export interface Environment {
   connection: LoadedPage,
   iframe: HTMLIFrameElement,
   ws: WebSocketSubject<unknown>,
-  iframeMessages: Observable<MessageEvent<unknown>>
+  iframeMessages: Observable<MessageEvent<unknown>>,
+  clicks: Observable<MouseEvent>
 }
 
 const envSetup : TE.TaskEither<Error, Environment> =
@@ -131,7 +132,8 @@ const envSetup : TE.TaskEither<Error, Environment> =
     TE.bindTo('connection')(getPage),
     TE.bind('iframe', ({ connection }) => F.pipe(connection.DOMString, insertBridge, insertIframe)),
     TE.bind('ws', ({ connection }) => TE.fromIO(serverSocket(connection))),
-    TE.bind('iframeMessages', () => TE.fromIO(iframeMessages))
+    TE.bind('iframeMessages', () => TE.fromIO(iframeMessages)),
+    TE.bind('clicks', () => TE.fromIO(() => fromEvent<MouseEvent>(document, 'click')))
   );
 
 //
@@ -171,7 +173,8 @@ const envSetup : TE.TaskEither<Error, Environment> =
 type Readerflow = R.Reader<Environment, Observable<string>>
 const program = F.pipe(
   domDiffFlow,
-  R.chain(() => mouseMovementsFlow)
+  R.chain(() => mouseMovementsFlow),
+  R.chain(() => mouseClicksFlow),
 )
 
 const mainApp = F.pipe(
