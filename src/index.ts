@@ -22,8 +22,6 @@ import type { Observable } from 'rxjs';
 import type { ObservableEither } from 'fp-ts-rxjs/es6/ObservableEither';
 import { filterMap, map as mapO } from 'fp-ts-rxjs/es6/Observable';
 import { map as mapOE, chain as chainOE } from 'fp-ts-rxjs/es6/ObservableEither';
-import morph from 'nanomorph';
-import nanohtml from 'nanohtml';
 import { domDiffFlow } from './domDiffs';
 import { mouseMovementsFlow } from './mouseMoves';
 import { mouseClicksFlow } from './mouseclicks';

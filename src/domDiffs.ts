@@ -104,10 +104,16 @@ const renderUpdates: RenderUpdates = (diffStream: Observable<DiffMessage>) =>
     ),
   );
 
+const morphIframeDoc = (iframeDoc: Document | null) => (domString: string) => F.pipe(
+  iframeDoc,
+  E.fromNullable(iframeDoc),
+  E.map(i => morph(i, parseToDOM(domString)))
+)
+
 type UpdateIframe = (domStrings: ObservableEither<string, string>) => R.Reader<Environment, ObservableEither<string, unknown>>
 const updateIframe: UpdateIframe = (domStrings) => R.asks((env) => F.pipe(
   domStrings,
-  mapOE(s => morph(env.iframe.contentDocument, parseToDOM(s)))
+  mapOE(morphIframeDoc(env.iframe.contentDocument))
 ))
 
 type NotifyServer = (results: ObservableEither<string, unknown>) => R.Reader<Environment, ObservableEither<string, unknown>>

@@ -19,7 +19,6 @@ import type { Observable } from 'rxjs';
 import type { ObservableEither } from 'fp-ts-rxjs/es6/ObservableEither';
 import { filterMap, map as mapO } from 'fp-ts-rxjs/es6/Observable';
 import { map as mapOE, chain as chainOE } from 'fp-ts-rxjs/es6/ObservableEither';
-import morph from 'nanomorph';
 import nanohtml from 'nanohtml';
 import type { Environment } from './index';
 
@@ -63,17 +62,20 @@ const mouseServerClientLoop: MouseServerClientLoop = (localenv) => F.pipe(
   mergeAll()
 )
 
+const moveMouse = (mouse: HTMLElement | null) => (position: {x: number, y: number}) => F.pipe(
+  mouse,
+  E.fromNullable(mouse),
+  E.map(m => {
+    m.style.left = `${position.x}px`;
+    m.style.top = `${position.y}px`;
+  })
+)
+
 const renderMice = (localenv: MouseStreams): MouseStreams => {
   const pointerLocal = document.getElementById('pointer-local');
   const pointerRemote = document.getElementById('pointer-remote');
-  localenv.localMouse.subscribe(e => {
-    pointerLocal.style.left = `${e.payload.x}px`;
-    pointerLocal.style.top = `${e.payload.y}px`;
-  })
-  localenv.remoteMouse.subscribe(e => {
-    pointerRemote.style.left = `${e.payload.x}px`;
-    pointerRemote.style.top = `${e.payload.y}px`;
-  })
+  localenv.localMouse.subscribe(e => moveMouse(pointerLocal)(e.payload))
+  localenv.remoteMouse.subscribe(e => moveMouse(pointerRemote)(e.payload))
   return localenv;
 }
 
