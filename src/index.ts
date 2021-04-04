@@ -20,14 +20,12 @@ import { fromEvent, interval, of } from 'rxjs';
 import { startWith, pairwise, map as rMap, withLatestFrom, scan, windowWhen, take, mergeAll, throttle } from 'rxjs/operators';
 import type { Observable } from 'rxjs';
 import type { ObservableEither } from 'fp-ts-rxjs/es6/ObservableEither';
+import * as ROE from 'fp-ts-rxjs/es6/ReaderObservableEither';
 import { filterMap, map as mapO } from 'fp-ts-rxjs/es6/Observable';
 import { map as mapOE, chain as chainOE } from 'fp-ts-rxjs/es6/ObservableEither';
 import { domDiffFlow } from './domDiffs';
 import { mouseMovementsFlow } from './mouseMoves';
 import { mouseClicksFlow } from './mouseclicks';
-
-// const HandledMessages = D.union(DiffMessage, MouseMoved);
-// type HandledMessages = D.TypeOf<typeof HandledMessages>
 
 const loadedPage = IOT.type({
   id: UUID,
@@ -42,8 +40,9 @@ const httpGet = (url: string) =>
     (reason) => new Error(String(reason)),
   );
 
-const getPage = F.pipe(
-  httpGet('/api/getpage?pageurl=http%3A//localhost%3A3000/thirdpage'),
+const getPage = (targetUrl: string) => F.pipe(
+  targetUrl,
+  httpGet,
   TE.map((x) => x.data),
   TE.chain((s) =>
     F.pipe(
@@ -72,11 +71,22 @@ const getIframeElement = (): IO.IO<HTMLIFrameElement> =>
 
 const addIframeContents = (contents: string) => (
   iframe: HTMLIFrameElement,
-): IOE.IOEither<Error, HTMLIFrameElement> =>
-  IOE.tryCatch(
-    () => {
-      iframe.srcdoc = contents;
-      return iframe;
+): TE.TaskEither<Error, HTMLIFrameElement> =>
+  TE.tryCatch(
+    (): Promise<HTMLIFrameElement> => {
+      return new Promise((res, rej) => {
+        iframe.srcdoc = contents;
+        window.requestAnimationFrame(() => {
+          // console.log(iframe.contentDocument);
+          // TODO: need to resolve this
+          // need to add this timeout so that we proprely
+          // render into the iframe contentDocument
+          // in the domDiffs
+          window.requestAnimationFrame(() => {
+            setTimeout(() => res(iframe), 10);
+          });
+        });
+      });
     },
     (reason) => new Error(String(reason)),
   );
@@ -84,8 +94,8 @@ const addIframeContents = (contents: string) => (
 const insertIframe = (domString: string) =>
   F.pipe(
     getIframeElement(),
-    IO.chain(addIframeContents(domString)),
-    TE.fromIOEither,
+    TE.fromIO,
+    TE.chain(addIframeContents(domString)),
   );
 
 const serverSocket = (payload: LoadedPage): IO.IO<WebSocketSubject<unknown>> => () => {
@@ -125,63 +135,32 @@ export interface Environment {
   clicks: Observable<MouseEvent>
 }
 
-const envSetup : TE.TaskEither<Error, Environment> =
+const envSetup = (pageUrl: string) : TE.TaskEither<Error, Environment> =>
   F.pipe(
-    TE.bindTo('connection')(getPage),
+    TE.bindTo('connection')(getPage(pageUrl)),
     TE.bind('iframe', ({ connection }) => F.pipe(connection.DOMString, insertBridge, insertIframe)),
     TE.bind('ws', ({ connection }) => TE.fromIO(serverSocket(connection))),
     TE.bind('iframeMessages', () => TE.fromIO(iframeMessages)),
     TE.bind('clicks', () => TE.fromIO(() => fromEvent<MouseEvent>(document, 'click')))
   );
 
-//
-// type DoReader = (s: string) => R.Reader<Environment, string>
-// const doReader: DoReader = (s: string) => R.asks(e => (s + e.connection.id))
-//
-// type Myread =  R.Reader<Environment, string>
-// const myread: Myread =  R.asks(e => (e.connection.DOMString.toUpperCase()))
-//
-//
-// type LocalMouseMock =  R.Reader<Environment, Observable<number>>
-// const localMouseMock: LocalMouseMock = R.asks(env => {
-//   return of(3);
-// });
-//
-// type RemoteMouseMock = (s: Observable<number>) => R.Reader<Environment, Observable<string>>
-// const remoteMouseMock: RemoteMouseMock = (s) => R.asks(env => {
-//   return of('remote')
-// })
-//
-// type RemoteMouseDo = (s: {localMouse: Observable<number>}) => R.Reader<Environment, Observable<string>>
-// const remoteMouseDo: RemoteMouseDo = (s) => R.asks(env => {
-//   return of('remote')
-// })
-//
-// type MouseProgram =  R.Reader<Environment, Observable<string>>
-// const mouseProgram: MouseProgram = F.pipe(
-//   localMouseMock,
-//   R.chain(e => remoteMouseMock(e))
-// )
-//
-// const mouseAsDo = F.pipe(
-//   R.bindTo('localMouse')(localMouseMock),
-//   R.bind('remoteMouse', remoteMouseDo)
-// )
+// TODO : envTearDown
 
-type Readerflow = R.Reader<Environment, Observable<string>>
 const program = F.pipe(
   domDiffFlow,
   R.chain(() => mouseMovementsFlow),
   R.chain(() => mouseClicksFlow),
 )
 
-const mainApp = F.pipe(
+const mainApp = (pageUrl: string) => F.pipe(
+  pageUrl,
   envSetup,
   TE.map(program)
 )
 
 // launch the program
 F.pipe(
+  '/api/getpage?pageurl=http%3A//sandboxedtests.vercel.app/clickcounter',
   mainApp,
   T.map(
     E.fold(

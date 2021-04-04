@@ -13,12 +13,15 @@ import * as IOT from 'io-ts';
 import { UUID } from 'io-ts-types';
 import * as D from 'io-ts/Decoder'
 import DiffMatchPatch, { patch_obj } from 'diff-match-patch';
-import { webSocket, WebSocketSubject } from 'rxjs/webSocket';
+import type { WebSocketSubject } from 'rxjs/webSocket';
 import { fromEvent, interval, of } from 'rxjs';
 import { startWith, pairwise, map as rMap, withLatestFrom, scan, windowWhen, take, mergeAll, throttle } from 'rxjs/operators';
 import type { Observable } from 'rxjs';
 import type { ObservableEither } from 'fp-ts-rxjs/es6/ObservableEither';
+import * as OE from 'fp-ts-rxjs/es6/ObservableEither';
 import { filterMap, map as mapO } from 'fp-ts-rxjs/es6/Observable';
+import * as RO from 'fp-ts-rxjs/es6/ReaderObservable';
+import type ROE from 'fp-ts-rxjs/es6/ReaderObservableEither';
 import { map as mapOE, chain as chainOE } from 'fp-ts-rxjs/es6/ObservableEither';
 import morph from 'nanomorph';
 import nanohtml from 'nanohtml';
@@ -55,44 +58,44 @@ export const DiffMessage = D.type({
 
 export type DiffMessage = D.TypeOf<typeof DiffMessage>
 
-type ToDiffvents =  R.Reader<Environment, Observable<DiffMessage>>
-const toDiffEvents: ToDiffvents =  R.asks((env) =>
-  F.pipe(
-    env,
-    () => env.ws,
-    mapO(a => DiffMessage.decode(a)),
-    filterMap(O.fromEither),
+// type ToDiffvents =  R.Reader<Environment, Observable<DiffMessage>>
+const toDiffEvents: RO.ReaderObservable<Environment, DiffMessage> = F.pipe(
+    R.asks<Environment, Observable<unknown>>(env => env.ws),
+    RO.map(a => DiffMessage.decode(a)),
+    RO.filterMap(O.fromEither)
   )
+
+export const parseToDOM = (contents: string) => IOE.tryCatch(
+  () => parser.parseFromString(contents, 'text/html'),
+  (e: any) => ({ message: 'Could not parse page contents' })
 )
 
+// export function parseToDOM(contents: string) {
+//   return IOE.tryCatch(parser.parseFromString(contents, 'text/html'));
+// }
 
-export function parseToDOM(contents: string) {
-  return parser.parseFromString(contents, 'text/html');
-}
 const diffEngine = new DiffMatchPatch.diff_match_patch();
 
-function patchString(domb: string, patches: Array<patch_obj>): E.Either<string, string> {
+function patchString(domb: string, patches: Array<patch_obj>): E.Either<{message: string}, string> {
   const [patched, results] = diffEngine.patch_apply(patches, domb);
   if (results.indexOf(false) > -1) {
-    return E.left('Could not patch')
+    return E.left({message: 'Could not patch'})
   } else {
     return E.right(patched);
   }
 }
 
-const startDOMEither = (startDOM: string): E.Either<string, string> => {
+const startDOMEither = (startDOM: string): E.Either<{message: string}, string> => {
   if(startDOM.length) {
     return E.right(startDOM);
   } else {
-    return E.left('invalid startDOM');
+    return E.left({message: 'invalid startDOM'});
   }
 }
 
-type RenderUpdates = (
-  diffStream: Observable<DiffMessage>,
-) => R.Reader<Environment, ObservableEither<string, string>>;
-const renderUpdates: RenderUpdates = (diffStream: Observable<DiffMessage>) =>
-  R.asks((env: Environment) =>
+const renderUpdates = (diffStream: Observable<DiffMessage>): ROE.ReaderObservableEither<Environment, {message: string}, string> => F.pipe(
+  R.asks<Environment, string>(e => e.connection.DOMString),
+  R.map(startingDOM => 
     F.pipe(
       diffStream,
       scan((domEither, diffs) => {
@@ -100,42 +103,69 @@ const renderUpdates: RenderUpdates = (diffStream: Observable<DiffMessage>) =>
           domEither,
           E.chain((d) => patchString(d, diffs.payload)),
         );
-      }, startDOMEither(env.connection.DOMString)),
+      }, startDOMEither(startingDOM)),
     ),
-  );
+  )
+)
 
 const morphIframeDoc = (iframeDoc: Document | null) => (domString: string) => F.pipe(
   iframeDoc,
   E.fromNullable(iframeDoc),
-  E.map(i => morph(i, parseToDOM(domString)))
+  E.mapLeft(() => ({message: 'iframe doesnt exist on the page'})),
+  IOE.fromEither,
+  IOE.chain(i => F.pipe(domString, parseToDOM, IOE.map(s => morph(i, s))))
 )
 
-type UpdateIframe = (domStrings: ObservableEither<string, string>) => R.Reader<Environment, ObservableEither<string, unknown>>
-const updateIframe: UpdateIframe = (domStrings) => R.asks((env) => F.pipe(
-  domStrings,
-  mapOE(morphIframeDoc(env.iframe.contentDocument))
-))
-
-type NotifyServer = (results: ObservableEither<string, unknown>) => R.Reader<Environment, ObservableEither<string, unknown>>
-const notifyServer: NotifyServer = (results) => R.asks((env) =>
-  F.pipe(results, (r) => {
-    r.subscribe((e) =>
+const docToEither = (iframe: HTMLIFrameElement) => F.pipe(
+  iframe,
+  i => O.fromNullable(i.contentDocument),
+  E.fromOption(() => null)
+)
+const renderStreamIntoIframe = (
+  iframe: E.Either<null, Document>,
+  string$: ObservableEither<{message: string}, string>,
+): ObservableEither<{message: string}, void> =>
+  F.pipe(
+    iframe,
+    OE.fromEither,
+    OE.mapLeft(() => ({message:'no iframe found'})),
+    OE.chain((i) =>
       F.pipe(
-        e,
-        E.map(() => {
-          env.ws.next({ type: 'DOMpatched' });
-        }),
-        E.mapLeft((e) => {
-          console.log('err', e);
-          env.ws.next({ type: 'error', payload: e });
-        }),
+        string$,
+        mapOE((s) => morphIframeDoc(i)(s)),
+        OE.chain(e => OE.fromIOEither(e))
       ),
-    );
-    return r;
-  }));
+    ),
+  );
 
-export type DomDiffFlow = R.Reader<Environment, ObservableEither<string, unknown>>
-export const domDiffFlow: DomDiffFlow = F.pipe(
+const updateIframe = (domStrings: ObservableEither<{message: string}, string>): ROE.ReaderObservableEither<Environment, {message: string}, void> => F.pipe(
+  R.asks<Environment, E.Either<null, Document>>(env => docToEither(env.iframe)),
+  R.map(e => renderStreamIntoIframe(e, domStrings)),
+)
+
+const notifyServer = (results: ObservableEither<{message: string}, unknown>): ROE.ReaderObservableEither<Environment, {message: string}, unknown> => F.pipe(
+  R.asks<Environment, WebSocketSubject<unknown>>(env => env.ws),
+  R.map(ws => F.pipe(
+    results,
+    (r) => {
+      r.subscribe((e) =>
+        F.pipe(
+          e,
+          E.map(() => {
+            ws.next({ type: 'DOMpatched' });
+          }),
+          E.mapLeft((e) => {
+            console.log('err', e);
+            ws.next({ type: 'error', payload: e });
+          }),
+        ),
+      );
+      return r;
+    }
+  ))
+)
+
+export const domDiffFlow: ROE.ReaderObservableEither<Environment, {message: string}, unknown> = F.pipe(
   toDiffEvents,
   R.chain(renderUpdates),
   R.chain(updateIframe),

@@ -31,30 +31,19 @@ const MouseClicked = D.type({
 
 type MouseClicked = D.TypeOf<typeof MouseClicked>
 
-const toMouseClicks = (stream: Observable<unknown>): Observable<MouseClicked> => 
+const toMouseClicks = (stream: Observable<MouseEvent>): Observable<MouseClicked> => 
   F.pipe(
   stream,
   mapO(a => MouseClicked.decode(a)),
   filterMap(O.fromEither)
 )
 
-type LocalMouseClicks = R.Reader<Environment, Observable<MouseEvent>>
-const localMouseClicks: LocalMouseClicks = R.asks((env) =>
-  F.pipe(
-    env.clicks,
-  ),
-);
-
-
-type PushToServer = (throttledMouseEvents: Observable<MouseEvent>) => R.Reader<Environment, Observable<Event>>
-const pushToServer: PushToServer = (throttledMouseEvents) => R.asks((env) => {
-  throttledMouseEvents.subscribe(e => {
-    env.ws.next({ type: 'mouseclick', x: e.clientX, y: e.clientY - 60 });
-  });
-  return throttledMouseEvents;
-})
-
 export const mouseClicksFlow = F.pipe(
-  localMouseClicks,
-  R.chain(pushToServer),
+  R.asks<Environment, {clicks: Observable<MouseEvent>, ws: WebSocketSubject<unknown>}>(env => ({clicks: env.clicks, ws: env.ws})),
+  R.map(({clicks, ws}) => {
+    clicks.subscribe(e => {
+      ws.next({ type: 'mouseclick', x: e.clientX, y: e.clientY - 60 });
+    })
+    return clicks;
+  })
 );
