@@ -12,7 +12,7 @@ import { fromEvent } from 'rxjs';
 import { take as take$, tap, withLatestFrom, map as map$ } from 'rxjs/operators';
 import { loadPage } from './index';
 
-const urlRegex = new RegExp(/(https?|ftp):\/\/[^\s\/$.?#].[^\s]*$/m)
+const urlRegex = new RegExp(/(https?|ftp):\/\/[^\s/$.?#].[^\s]*$/m)
 
 const getURLInputElem: IOE.IOEither<{message: string}, HTMLInputElement> = () => F.pipe(
   document.getElementById('gotourl'),
@@ -55,7 +55,7 @@ const urlInputs = (urlInputElem: HTMLInputElement): IO.IO<ObservableEither<{mess
     }),
     OB.map(e => F.pipe(e,
       E.map(b => {
-      if(b.startsWith('http')) { return b };
+      if(b.startsWith('http')) { return b }
       return `https://${b}` }),
       E.chain(E.fromPredicate(
         e => urlRegex.test(e),
@@ -71,8 +71,8 @@ const buttonClicksObsIO = (button: HTMLButtonElement): IO.IO<Observable<Event>> 
 const handleUrlInputs = F.pipe(
   IOE.bindTo('urlInputElem')(getURLInputElem),
   IOE.bind('buttonElement', () => getGotoButtonElement),
-  IOE.bind('gotoURLPresses', ({ buttonElement }):IOE.IOEither<{message: string}, Observable<Event>> => F.pipe(buttonElement, buttonClicksObsIO, IOE.fromIO)),
-  IOE.bind('urlInputStream', ({ urlInputElem }):IOE.IOEither<{message: string}, ObservableEither<{message: string}, validURL>> => F.pipe(urlInputElem, urlInputs, IOE.fromIO)),
+  IOE.bind('gotoURLPresses', ({ buttonElement }) => F.pipe(buttonElement, buttonClicksObsIO, IOE.fromIO)),
+  IOE.bind('urlInputStream', ({ urlInputElem }) => F.pipe(urlInputElem, urlInputs, IOE.fromIO)),
   IOE.map(({ urlInputStream, gotoURLPresses, urlInputElem, buttonElement }) => F.pipe(
     urlInputStream,
     tap(F.pipe(E.fold(
