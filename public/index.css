@@ -10,6 +10,22 @@ body {
   overflow: hidden;
 }
 
+#gotourlbutton.invalid {
+    pointer-events: none;
+    opacity: 0;
+  }
+#gotourl.invalid {
+    border: 1px solid #b0789b;
+  }
+
+#gotourlbutton.valid {
+    pointer-events: auto;
+    opacity: 1;
+  }
+#gotourl.valid {
+    border: 1px solid white;
+  }
+
 #editorchrome h4 {
   text-align: center;
 }

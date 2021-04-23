@@ -67,7 +67,7 @@ const toDiffEvents: RO.ReaderObservable<Environment, DiffMessage> = F.pipe(
 
 export const parseToDOM = (contents: string) => IOE.tryCatch(
   () => parser.parseFromString(contents, 'text/html'),
-  (e: any) => ({ message: 'Could not parse page contents' })
+  () => ({ message: 'Could not parse page contents' })
 )
 
 // export function parseToDOM(contents: string) {

@@ -1,31 +1,21 @@
-import {
-  function as F,
-  taskEither as TE,
-  either as E,
-  option as O,
-  io as IO,
-  ioEither as IOE,
-  reader as R,
-  readerEither as RE,
-  readerTaskEither as RTE,
-  task as T,
-} from 'fp-ts';
 import axios, { AxiosResponse } from 'axios';
+import {
+  either as E,
+  function as F,
+  io as IO,
+  option as O,
+  reader as R,
+  task as T,
+  taskEither as TE,
+} from 'fp-ts';
 import * as IOT from 'io-ts';
 import { UUID } from 'io-ts-types';
-import * as D from 'io-ts/Decoder'
-import DiffMatchPatch, { patch_obj } from 'diff-match-patch';
-import { webSocket, WebSocketSubject } from 'rxjs/webSocket';
-import { fromEvent, interval, of } from 'rxjs';
-import { startWith, pairwise, map as rMap, withLatestFrom, scan, windowWhen, take, mergeAll, throttle } from 'rxjs/operators';
 import type { Observable } from 'rxjs';
-import type { ObservableEither } from 'fp-ts-rxjs/es6/ObservableEither';
-import * as ROE from 'fp-ts-rxjs/es6/ReaderObservableEither';
-import { filterMap, map as mapO } from 'fp-ts-rxjs/es6/Observable';
-import { map as mapOE, chain as chainOE } from 'fp-ts-rxjs/es6/ObservableEither';
+import { fromEvent } from 'rxjs';
+import { webSocket, WebSocketSubject } from 'rxjs/webSocket';
 import { domDiffFlow } from './domDiffs';
-import { mouseMovementsFlow } from './mouseMoves';
 import { mouseClicksFlow } from './mouseclicks';
+import { mouseMovementsFlow } from './mouseMoves';
 
 const loadedPage = IOT.type({
   id: UUID,
@@ -53,13 +43,6 @@ const getPage = (targetUrl: string) => F.pipe(
   ),
 );
 
-const getElement = (id: string): IOE.IOEither<Error, HTMLElement> => () =>
-  F.pipe(
-    id,
-    (i) => O.fromNullable(document.getElementById(i)),
-    E.fromOption(() => new Error(String('could not find element'))),
-  );
-
 const getIframeElement = (): IO.IO<HTMLIFrameElement> =>
   F.flow(
     () => O.fromNullable(document.getElementsByTagName('iframe')[0]),
@@ -74,7 +57,7 @@ const addIframeContents = (contents: string) => (
 ): TE.TaskEither<Error, HTMLIFrameElement> =>
   TE.tryCatch(
     (): Promise<HTMLIFrameElement> => {
-      return new Promise((res, rej) => {
+      return new Promise((res) => {
         iframe.srcdoc = contents;
         window.requestAnimationFrame(() => {
           // console.log(iframe.contentDocument);
@@ -152,16 +135,19 @@ const program = F.pipe(
   R.chain(() => mouseClicksFlow),
 )
 
-const mainApp = (pageUrl: string) => F.pipe(
+const loadPageMain = (pageUrl: string) => F.pipe(
   pageUrl,
   envSetup,
   TE.map(program)
 )
 
-// launch the program
-F.pipe(
-  '/api/getpage?pageurl=http%3A//sandboxedtests.vercel.app/clickcounter',
-  mainApp,
+// load and start using a page
+export const loadPage = (pageUrl: string) => F.pipe(
+  // '/api/getpage?pageurl=http%3A//sandboxedtests.vercel.app/clickcounter',
+  // instead, should be (URL encoded):
+  // '/api/getpage/http%3A//sandboxedtests.vercel.app/clickcounter',
+  pageUrl,
+  loadPageMain,
   T.map(
     E.fold(
       console.error,

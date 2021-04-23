@@ -1,28 +1,17 @@
 import {
-  function as F,
-  taskEither as TE,
   either as E,
-  option as O,
+  function as F,
   io as IO,
   ioEither as IOE,
+  option as O,
   reader as R,
 } from 'fp-ts';
-import axios, { AxiosResponse } from 'axios';
-import * as IOT from 'io-ts';
-import { UUID } from 'io-ts-types';
-import * as D from 'io-ts/Decoder'
-import DiffMatchPatch, { patch_obj } from 'diff-match-patch';
-import { webSocket, WebSocketSubject } from 'rxjs/webSocket';
-import { fromEvent, interval, of } from 'rxjs';
-import { startWith, pairwise, map as rMap, withLatestFrom, scan, windowWhen, take, mergeAll, throttle } from 'rxjs/operators';
-import type { Observable } from 'rxjs';
-import type { ObservableEither } from 'fp-ts-rxjs/es6/ObservableEither';
-import * as OE from 'fp-ts-rxjs/es6/ObservableEither';
-import * as RO from 'fp-ts-rxjs/es6/ReaderObservable';
-import * as ROE from 'fp-ts-rxjs/es6/ReaderObservableEither';
 import { filterMap, map as mapO } from 'fp-ts-rxjs/es6/Observable';
-import { map as mapOE, chain as chainOE } from 'fp-ts-rxjs/es6/ObservableEither';
-import nanohtml from 'nanohtml';
+import type * as RO from 'fp-ts-rxjs/es6/ReaderObservable';
+import * as D from 'io-ts/Decoder';
+import type { Observable } from 'rxjs';
+import { map as rMap, mergeAll, take, windowWhen } from 'rxjs/operators';
+import type { WebSocketSubject } from 'rxjs/webSocket';
 import type { Environment } from './index';
 
 const MouseMoved = D.type({
@@ -48,7 +37,7 @@ const localMouseMoves: RO.ReaderObservable<Environment, MouseMoved> = F.pipe(
   R.map(toMouseEvents)
 )
 
-const mouseServerStream = (localenv: {localMouse: Observable<MouseMoved>}): RO.ReaderObservable<Environment, MouseMoved> => F.pipe(
+const mouseServerStream = (): RO.ReaderObservable<Environment, MouseMoved> => F.pipe(
   R.asks<Environment, WebSocketSubject<unknown>>(env => env.ws),
   R.map(toMouseEvents)
 )
