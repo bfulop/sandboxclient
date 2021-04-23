@@ -1,62 +1,24 @@
-import {
-  function as F,
-  taskEither as TE,
-  either as E,
-  option as O,
-  io as IO,
-  ioEither as IOE,
-  reader as R,
-  readerEither as RE,
-} from 'fp-ts';
-import axios, { AxiosResponse } from 'axios';
-import * as IOT from 'io-ts';
-import { UUID } from 'io-ts-types';
-import * as D from 'io-ts/Decoder'
 import DiffMatchPatch, { patch_obj } from 'diff-match-patch';
-import type { WebSocketSubject } from 'rxjs/webSocket';
-import { fromEvent, interval, of } from 'rxjs';
-import { startWith, pairwise, map as rMap, withLatestFrom, scan, windowWhen, take, mergeAll, throttle } from 'rxjs/operators';
-import type { Observable } from 'rxjs';
+import {
+  either as E,
+  function as F,
+  ioEither as IOE,
+  option as O,
+  reader as R,
+} from 'fp-ts';
 import type { ObservableEither } from 'fp-ts-rxjs/es6/ObservableEither';
 import * as OE from 'fp-ts-rxjs/es6/ObservableEither';
-import { filterMap, map as mapO } from 'fp-ts-rxjs/es6/Observable';
+import { map as mapOE } from 'fp-ts-rxjs/es6/ObservableEither';
 import * as RO from 'fp-ts-rxjs/es6/ReaderObservable';
 import type ROE from 'fp-ts-rxjs/es6/ReaderObservableEither';
-import { map as mapOE, chain as chainOE } from 'fp-ts-rxjs/es6/ObservableEither';
 import morph from 'nanomorph';
-import nanohtml from 'nanohtml';
+import type { Observable } from 'rxjs';
+import { scan } from 'rxjs/operators';
+import type { WebSocketSubject } from 'rxjs/webSocket';
 import type { Environment } from './index';
+import { DiffMessage } from './codecs';
 
 const parser = new DOMParser();
-
-const isPatch_Obj = (input: unknown): input is patch_obj => {
-  if (
-    input &&
-    typeof input === 'object' &&
-    input.hasOwnProperty('diffs') &&
-    input.hasOwnProperty('start1') &&
-    input.hasOwnProperty('start2') &&
-    input.hasOwnProperty('length1') &&
-    input.hasOwnProperty('length2')
-  ) {
-    return true;
-  }
-  return false;
-};
-
-
-const patchDecode: D.Decoder<unknown, patch_obj> = {
-  decode: u => isPatch_Obj(u) ? D.success(u) : D.failure(u, 'patchobj')
-}
-
-const DiffPatchArray: D.Decoder<unknown, Array<patch_obj>> = D.array(patchDecode);
-
-export const DiffMessage = D.type({
-  type: D.literal('diff'),
-  payload: DiffPatchArray
-})
-
-export type DiffMessage = D.TypeOf<typeof DiffMessage>
 
 // type ToDiffvents =  R.Reader<Environment, Observable<DiffMessage>>
 const toDiffEvents: RO.ReaderObservable<Environment, DiffMessage> = F.pipe(
@@ -113,7 +75,7 @@ const morphIframeDoc = (iframeDoc: Document | null) => (domString: string) => F.
   E.fromNullable(iframeDoc),
   E.mapLeft(() => ({message: 'iframe doesnt exist on the page'})),
   IOE.fromEither,
-  IOE.chain(i => F.pipe(domString, parseToDOM, IOE.map(s => morph(i, s))))
+  IOE.chain((i:Document) => F.pipe(domString, parseToDOM, IOE.map(s => morph(i, s))))
 )
 
 const docToEither = (iframe: HTMLIFrameElement) => F.pipe(

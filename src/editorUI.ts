@@ -3,14 +3,16 @@ import {
   function as F,
   ioEither as IOE,
   option as O,
+  io as IO,
 } from 'fp-ts';
 import * as OB from 'fp-ts-rxjs/es6/Observable';
+import type { Observable } from 'rxjs';
 import type { ObservableEither } from 'fp-ts-rxjs/es6/ObservableEither';
 import { fromEvent } from 'rxjs';
 import { take as take$, tap, withLatestFrom, map as map$ } from 'rxjs/operators';
-// import { loadPage } from './index';
+import { loadPage } from './index';
 
-const urlRegex = new RegExp('^(https?|ftp)://[^\s/$.?#].[^\s]*$', 'is');
+const urlRegex = new RegExp(/(https?|ftp):\/\/[^\s\/$.?#].[^\s]*$/m)
 
 const getURLInputElem: IOE.IOEither<{message: string}, HTMLInputElement> = () => F.pipe(
   document.getElementById('gotourl'),
@@ -39,13 +41,7 @@ const getGotoButtonElement: IOE.IOEither<{message: string}, HTMLButtonElement> =
 type validURL = string;
 
 
-// type into url
-// value stream
-// validated value stream
-// merge with click or enter
-
-
-const urlInputs = (urlInputElem: HTMLInputElement): ObservableEither<{message: string}, validURL> => F.pipe(
+const urlInputs = (urlInputElem: HTMLInputElement): IO.IO<ObservableEither<{message: string}, validURL>> => () => F.pipe(
   urlInputElem,
   e => fromEvent<InputEvent>(e, 'input'),
   r => F.pipe(
@@ -61,25 +57,22 @@ const urlInputs = (urlInputElem: HTMLInputElement): ObservableEither<{message: s
       E.map(b => {
       if(b.startsWith('http')) { return b };
       return `https://${b}` }),
-      E.chain((b):E.Either<{message: string}, validURL> => {
-        // TODO fromPredicate
-        // O.chain(O.fromPredicate(s => urlRegex.test(s)))
-        if(urlRegex.test(b)) {
-          console.log('yes valid url')
-          return E.right(b)
-        }
-        return E.left({message: 'not a valid url'})
-      })
+      E.chain(E.fromPredicate(
+        e => urlRegex.test(e),
+        () => ({message: 'not a valid url'})
+      ))
     )),
   )
 );
 
+const buttonClicksObsIO = (button: HTMLButtonElement): IO.IO<Observable<Event>> => () => fromEvent(button, 'click');
+
 // when the url is _Right, let the 'clicks' through
 const handleUrlInputs = F.pipe(
   IOE.bindTo('urlInputElem')(getURLInputElem),
-  IOE.bind('buttonElement', ():IOE.IOEither<{message: string}, HTMLButtonElement> => getGotoButtonElement),
-  IOE.bind('gotoURLPresses', ({ buttonElement }) => IOE.fromIO(() => fromEvent(buttonElement, 'click'))),
-  IOE.bind('urlInputStream', ({ urlInputElem }) => IOE.fromIO(() => urlInputs(urlInputElem))),
+  IOE.bind('buttonElement', () => getGotoButtonElement),
+  IOE.bind('gotoURLPresses', ({ buttonElement }):IOE.IOEither<{message: string}, Observable<Event>> => F.pipe(buttonElement, buttonClicksObsIO, IOE.fromIO)),
+  IOE.bind('urlInputStream', ({ urlInputElem }):IOE.IOEither<{message: string}, ObservableEither<{message: string}, validURL>> => F.pipe(urlInputElem, urlInputs, IOE.fromIO)),
   IOE.map(({ urlInputStream, gotoURLPresses, urlInputElem, buttonElement }) => F.pipe(
     urlInputStream,
     tap(F.pipe(E.fold(
@@ -103,11 +96,11 @@ const mainApp = F.pipe(
       r.pipe(take$(1), 
         map$(
         ([, url]) => {
-        // loadPage(url);
         console.log('should go to url', url);
       })),
-      r.subscribe(e => {
-        console.log('valid url streams', e)
+      r.subscribe(([, url]) => {
+        loadPage(url);
+        console.log('can go to url', url)
       })
       console.log('did work!', r)
     }

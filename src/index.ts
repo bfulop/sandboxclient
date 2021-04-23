@@ -1,4 +1,3 @@
-import axios, { AxiosResponse } from 'axios';
 import {
   either as E,
   function as F,
@@ -8,39 +7,63 @@ import {
   task as T,
   taskEither as TE,
 } from 'fp-ts';
-import * as IOT from 'io-ts';
-import { UUID } from 'io-ts-types';
 import type { Observable } from 'rxjs';
 import { fromEvent } from 'rxjs';
 import { webSocket, WebSocketSubject } from 'rxjs/webSocket';
 import { domDiffFlow } from './domDiffs';
 import { mouseClicksFlow } from './mouseclicks';
 import { mouseMovementsFlow } from './mouseMoves';
+import { LoadedPage } from './codecs';
 
-const loadedPage = IOT.type({
-  id: UUID,
-  DOMString: IOT.string,
-});
+// Error types
+type HttpRequestError = {
+  tag: 'httpRequestError'
+  error: unknown
+}
 
-export type LoadedPage = IOT.TypeOf<typeof loadedPage>;
+type HttpContentTypeError = {
+  tag: 'httpContentTypeError'
+  error: unknown
+}
 
-const httpGet = (url: string) =>
-  TE.tryCatch<Error, AxiosResponse>(
-    () => axios.get(url),
-    (reason) => new Error(String(reason)),
-  );
+// Interface
+interface HttpClient {
+  request(
+    input: RequestInfo,
+    init?: RequestInit,
+  ): TE.TaskEither<HttpRequestError, Response>
+}
+
+const fetchHttpClient: HttpClient = {
+  request: (input, init) =>
+    TE.tryCatch(
+      () => {
+        return fetch(input, init)
+      },
+      (e: any) => ({
+        tag: 'httpRequestError',
+        error: e,
+      }),
+    ),
+}
+
+const toJson = (
+  response: Response,
+): TE.TaskEither<HttpContentTypeError, unknown> =>
+  TE.tryCatch(
+    () => response.json(),
+    (e: any) => ({ tag: 'httpContentTypeError', error: e }),
+  )
 
 const getPage = (targetUrl: string) => F.pipe(
   targetUrl,
-  httpGet,
-  TE.map((x) => x.data),
-  TE.chain((s) =>
-    F.pipe(
-      loadedPage.decode(s),
-      E.mapLeft((err) => new Error(String(err))),
-      TE.fromEither,
-    ),
-  ),
+  fetchHttpClient.request,
+  TE.map(e => {
+    console.log('what is the response?', e);
+    return e;
+  }),
+  TE.chainW(toJson),
+  TE.chainEitherKW((s) => F.pipe(s, LoadedPage.decode))
 );
 
 const getIframeElement = (): IO.IO<HTMLIFrameElement> =>
@@ -118,13 +141,13 @@ export interface Environment {
   clicks: Observable<MouseEvent>
 }
 
-const envSetup = (pageUrl: string) : TE.TaskEither<Error, Environment> =>
+const envSetup = (pageUrl: string) =>
   F.pipe(
     TE.bindTo('connection')(getPage(pageUrl)),
-    TE.bind('iframe', ({ connection }) => F.pipe(connection.DOMString, insertBridge, insertIframe)),
-    TE.bind('ws', ({ connection }) => TE.fromIO(serverSocket(connection))),
-    TE.bind('iframeMessages', () => TE.fromIO(iframeMessages)),
-    TE.bind('clicks', () => TE.fromIO(() => fromEvent<MouseEvent>(document, 'click')))
+    TE.bindW('iframe', ({ connection }) => F.pipe(connection.DOMString, insertBridge, insertIframe)),
+    TE.bindW('ws', ({ connection }): TE.TaskEither<never, WebSocketSubject<unknown>> => TE.fromIO<never, WebSocketSubject<unknown>>(serverSocket(connection))),
+    TE.bindW('iframeMessages', (): TE.TaskEither<never, Observable<MessageEvent>> => TE.fromIO(iframeMessages)),
+    TE.bindW('clicks', ():TE.TaskEither<never, Observable<MouseEvent>> => TE.fromIO(() => fromEvent<MouseEvent>(document, 'click')))
   );
 
 // TODO : envTearDown
@@ -144,9 +167,12 @@ const loadPageMain = (pageUrl: string) => F.pipe(
 // load and start using a page
 export const loadPage = (pageUrl: string) => F.pipe(
   // '/api/getpage?pageurl=http%3A//sandboxedtests.vercel.app/clickcounter',
-  // instead, should be (URL encoded):
-  // '/api/getpage/http%3A//sandboxedtests.vercel.app/clickcounter',
   pageUrl,
+  e => `/api/getpage/${encodeURIComponent(e)}`,
+  e => {
+    console.log('shouldload', e);
+    return e;
+  },
   loadPageMain,
   T.map(
     E.fold(

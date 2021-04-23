@@ -1,0 +1,20 @@
+{
+  "dependencies": {
+    "diff-match-patch": "^1.0.5",
+    "fp-ts": "^2.10.2",
+    "fp-ts-rxjs": "^0.6.13",
+    "io-ts": "^2.2.16",
+    "io-ts-types": "^0.5.16",
+    "nanomorph": "^5.4.3",
+    "rxjs": "6.x"
+  },
+  "lock": {
+    "diff-match-patch#^1.0.5": "diff-match-patch@v1.0.5-WBTHiG2k3vdt3WtCJtPB",
+    "fp-ts#^2.10.2": "fp-ts@v2.10.2-1P0BSIDBzQAyjlDXuNkn",
+    "fp-ts-rxjs#^0.6.13": "fp-ts-rxjs@v0.6.13-nPW7B1G37qREXgKDWZEU",
+    "io-ts#^2.2.16": "io-ts@v2.2.16-kHDMPSe1zKyWsAXMjtyV",
+    "io-ts-types#^0.5.16": "io-ts-types@v0.5.16-zDlv6lFADs4c0DDfDFvg",
+    "nanomorph#^5.4.3": "nanomorph@v5.4.3-fpWkVJIKklyRhOhropJU",
+    "rxjs#6.x": "rxjs@v6.6.7-adbCLW1QrUdZOZguhITV"
+  }
+}
