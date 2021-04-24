@@ -40,7 +40,7 @@ const fetchHttpClient: HttpClient = {
       () => {
         return fetch(input, init)
       },
-      (e: any) => ({
+      (e: unknown) => ({
         tag: 'httpRequestError',
         error: e,
       }),
@@ -52,7 +52,7 @@ const toJson = (
 ): TE.TaskEither<HttpContentTypeError, unknown> =>
   TE.tryCatch(
     () => response.json(),
-    (e: any) => ({ tag: 'httpContentTypeError', error: e }),
+    (e: unknown) => ({ tag: 'httpContentTypeError', error: e }),
   )
 
 const getPage = (targetUrl: string) => F.pipe(
@@ -165,14 +165,10 @@ const loadPageMain = (pageUrl: string) => F.pipe(
 )
 
 // load and start using a page
-export const loadPage = (pageUrl: string) => F.pipe(
+export const loadPage = (pageUrl: string): Promise<void> => F.pipe(
   // '/api/getpage?pageurl=http%3A//sandboxedtests.vercel.app/clickcounter',
   pageUrl,
   e => `/api/getpage/${encodeURIComponent(e)}`,
-  e => {
-    console.log('shouldload', e);
-    return e;
-  },
   loadPageMain,
   T.map(
     E.fold(

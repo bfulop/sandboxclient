@@ -9,6 +9,25 @@
     <title>Snowpack App</title>
   </head>
   <body>
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js', {scope: './'})
+          .then((reg) => {
+            // registration worked
+            console.log('Registration succeeded. Scope is ' + reg.scope);
+            if(reg.installing) {
+              console.log('Service worker installing');
+            } else if(reg.waiting) {
+              console.log('Service worker installed');
+            } else if(reg.active) {
+              console.log('Service worker active');
+            }
+          }).catch((error) => {
+            // registration failed
+            console.log('Registration failed with ' + error);
+          });
+      }
+    </script>
     <div id="editorchrome">
       <input tabindex=1 type="text" id="gotourl" placeholder="enter a valid url" class="invalid" /><button type="button" id="gotourlbutton" class="invalid">GO!</button>
     </div>

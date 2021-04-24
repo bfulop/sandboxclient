@@ -1,10 +1,11 @@
+// const httpProxy = require('http-proxy');
 import httpProxy from 'http-proxy';
 const proxy = httpProxy.createServer({ target: 'http://localhost:3021' });
 
 const config = {
   optimize: {
     "bundle": true,
-    "minify": false,
+    "minify": true,
     "target": "es2020"
   },
   mount: {
@@ -25,6 +26,7 @@ const config = {
     // {"match": "routes", "src": ".*", "dest": "/index.html"},
   ],
   packageOptions: {
+    "source": "remote",
   },
   devOptions: {
     /* ... */

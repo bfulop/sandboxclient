@@ -26,6 +26,7 @@ const getURLInputElem: IOE.IOEither<{message: string}, HTMLInputElement> = () =>
   })
 )
 
+
 const getGotoButtonElement: IOE.IOEither<{message: string}, HTMLButtonElement> = () => F.pipe(
   document.getElementById('gotourlbutton'),
   E.fromNullable({message: 'goto url button not found'}),

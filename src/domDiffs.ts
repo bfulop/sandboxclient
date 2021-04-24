@@ -2,6 +2,7 @@ import DiffMatchPatch, { patch_obj } from 'diff-match-patch';
 import {
   either as E,
   function as F,
+  io as IO,
   ioEither as IOE,
   option as O,
   reader as R,
@@ -27,8 +28,22 @@ const toDiffEvents: RO.ReaderObservable<Environment, DiffMessage> = F.pipe(
     RO.filterMap(O.fromEither)
   )
 
-export const parseToDOM = (contents: string) => IOE.tryCatch(
-  () => parser.parseFromString(contents, 'text/html'),
+const cleanScripts = (doc: Document): IO.IO<Document> => () => {
+  Array.from(doc.getElementsByTagName('link')).filter(elem => elem.getAttribute('as') === 'script').forEach(elem => {
+    elem.setAttribute('href', '');
+    elem.setAttribute('rel', 'nofollow');
+  });
+  Array.from(doc.getElementsByTagName('script')).forEach(scriptElem => {
+    scriptElem.innerHTML = '';
+    scriptElem.setAttribute('src', '');
+  });
+  return doc;
+}
+
+const parseFromString = (s: string): IO.IO<Document> => () => parser.parseFromString(s, 'text/html');
+
+export const parseToDOM = (contents: string): IOE.IOEither<{message: string}, Document> => IOE.tryCatch(
+  F.pipe(contents, parseFromString, IO.chain(e => cleanScripts(e)), IO.map(e => {console.log('what', e); return e})),
   () => ({ message: 'Could not parse page contents' })
 )
 
