@@ -77,8 +77,8 @@ const handleUrlInputs = F.pipe(
   IOE.map(({ urlInputStream, gotoURLPresses, urlInputElem, buttonElement }) => F.pipe(
     urlInputStream,
     tap(F.pipe(E.fold(
-        () => {[urlInputElem, buttonElement].forEach(e => {console.log('ha, invalid', e);e.classList.remove('valid');e.classList.add('invalid');})},
-        () => {[urlInputElem, buttonElement].forEach(e => {console.log('ha, valid', e);e.classList.remove('invalid');e.classList.add('valid');})},
+        () => {[urlInputElem, buttonElement].forEach(e => {e.classList.remove('valid');e.classList.add('invalid');})},
+        () => {[urlInputElem, buttonElement].forEach(e => {e.classList.remove('invalid');e.classList.add('valid');})},
       ))
     ),
     // TODO here update the CSS stuff of the button and urlinput
@@ -101,9 +101,7 @@ const mainApp = F.pipe(
       })),
       r.subscribe(([, url]) => {
         loadPage(url);
-        console.log('can go to url', url)
       })
-      console.log('did work!', r)
     }
   )
 )

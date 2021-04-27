@@ -6,8 +6,9 @@ body {
 }
 
 #editorchrome {
-  height: 60px;
-  overflow: hidden;
+  position: absolute;
+  top: 0;
+  left: 0;
 }
 
 #gotourlbutton.invalid {
@@ -43,7 +44,6 @@ body {
   position: absolute;
   left: 0;
   top: 0;
-  transform: translateY(60px);
   background-color: silver;
   width: 10px;
   height: 10px;

@@ -2,6 +2,11 @@ import * as t from 'io-ts';
 import { UUID } from 'io-ts-types';
 import type { patch_obj } from 'diff-match-patch';
 
+// ****************  SIMPLE TYPES  ****************  
+
+export type SimpleError = {
+  message: string
+}
 
 // ****************  USER EVENTS  ****************  
 

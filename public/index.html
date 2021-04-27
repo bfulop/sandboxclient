@@ -28,24 +28,13 @@
           });
       }
     </script>
-    <div id="editorchrome">
-      <input tabindex=1 type="text" id="gotourl" placeholder="enter a valid url" class="invalid" /><button type="button" id="gotourlbutton" class="invalid">GO!</button>
-    </div>
-    <iframe id="theiframe"></iframe>
-    <div id="pointer-local">&nbsp;</div>
-    <div id="pointer-remote">&nbsp;</div>
-    <noscript>You need to enable JavaScript to run this app.</noscript>
     <script type="module" src="./dist/editorUI.js"></script>
-    <!--
-      This HTML file is a template.
-      If you open it directly in the browser, you will see an empty page.
-
-      You can add webfonts, meta tags, or analytics to this file.
-      The build step will place the bundled scripts into the <body> tag.
-
-      To begin the development, run `npm start` or `yarn start`.
-      To create a production bundle, use `npm run build` or `yarn build`.
-    -->
+    <div id="editorchrome">
+      <div id="pointer-local">&nbsp;</div>
+      <div id="pointer-remote">&nbsp;</div>
+      <input tabindex=1 type="text" id="gotourl" placeholder="enter a valid url" class="invalid" /><button type="button" id="gotourlbutton" class="invalid">GO!</button>
+      <link rel="stylesheet" type="text/css" href="./index.css" />
+    </div>
   </body>
 </html>
 

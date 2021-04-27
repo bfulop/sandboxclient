@@ -1,12 +1,13 @@
 import { function as F, reader as R } from 'fp-ts';
-import type { Observable } from 'rxjs';
 import type { WebSocketSubject } from 'rxjs/webSocket';
 import type { Environment } from './index';
 import { MouseAction } from './codecs';
+import { fromEvent } from 'rxjs';
 
 export const mouseClicksFlow = F.pipe(
-  R.asks<Environment, {clicks: Observable<MouseEvent>, ws: WebSocketSubject<unknown>}>(env => ({clicks: env.clicks, ws: env.ws})),
-  R.map(({clicks, ws}) => {
+  R.asks<Environment,  WebSocketSubject<unknown>>(env => env.ws),
+  R.map((ws) => {
+    const clicks = fromEvent<MouseEvent>(window, 'click');
     clicks.subscribe(e => {
       ws.next(MouseAction.encode({ type: 'mouseclick', payload: {x: e.clientX, y: e.clientY - 60} }));
     })

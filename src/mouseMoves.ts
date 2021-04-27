@@ -8,8 +8,9 @@ import {
 import * as E from 'fp-ts/es6/Either';
 import { filterMap, map as mapO } from 'fp-ts-rxjs/es6/Observable';
 import type * as RO from 'fp-ts-rxjs/es6/ReaderObservable';
+import { fromEvent } from 'rxjs';
 import type { Observable } from 'rxjs';
-import { map as rMap, mergeAll, take, windowWhen } from 'rxjs/operators';
+import { map as rMap, mergeAll, take, throttleTime, windowWhen } from 'rxjs/operators';
 import type { WebSocketSubject } from 'rxjs/webSocket';
 import type { Environment } from './index';
 import { MouseAction } from './codecs';
@@ -21,13 +22,13 @@ const toMouseEvents = (stream: Observable<unknown>): Observable<MouseAction> =>
   filterMap(O.fromEither)
 )
 
-const localMouseMoves: RO.ReaderObservable<Environment, MouseAction> = F.pipe(
-  R.asks<Environment, Observable<MessageEvent<unknown>>>(env => env.iframeMessages),
-  R.map(rMap(e => e.data)),
-  R.map(toMouseEvents)
-)
+const localMouseMoves: IO.IO<Observable<MouseAction>> = () =>
+  F.pipe(
+    fromEvent<MouseEvent>(window, 'mousemove').pipe(throttleTime(41)),
+    rMap((e):MouseAction => ({ type: 'mousemoved', payload: { x: e.clientX, y: e.clientY } })),
+  );
 
-const mouseServerStream = (): RO.ReaderObservable<Environment, MouseAction> => F.pipe(
+const mouseServerStream: RO.ReaderObservable<Environment, MouseAction> = F.pipe(
   R.asks<Environment, WebSocketSubject<unknown>>(env => env.ws),
   R.map(toMouseEvents)
 )
@@ -81,9 +82,9 @@ const pushToServer = (throttledMouseEvents: IOE.IOEither< { message: string }, O
   );
 
 export const mouseMovementsFlow = F.pipe(
-  R.bindTo('localMouse')(localMouseMoves),
-  R.bind('remoteMouse', mouseServerStream),
-  R.map(e => F.pipe(e, renderMouse, IOE.map(mouseServerClientLoop))),
+  R.bindTo('remoteMouse')(mouseServerStream),
+  R.bind('localMouse', () => localMouseMoves),
+  R.map(e => F.pipe(e, renderMouse, IOE.map(b => mouseServerClientLoop(b)))),
   R.chain(pushToServer),
   // !!!! START the IO<Either>:
   R.map(ioe => ioe())
