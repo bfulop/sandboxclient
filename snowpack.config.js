@@ -10,7 +10,7 @@ const config = {
   },
   mount: {
     public: { url: '/', static: true },
-    src: { url: '/dist' },
+    src: { url: '/abtasty_sandboxed' },
   },
   plugins: ['@snowpack/plugin-typescript'],
   routes: [

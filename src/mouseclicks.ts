@@ -9,7 +9,7 @@ export const mouseClicksFlow = F.pipe(
   R.map((ws) => {
     const clicks = fromEvent<MouseEvent>(window, 'click');
     clicks.subscribe(e => {
-      ws.next(MouseAction.encode({ type: 'mouseclick', payload: {x: e.clientX, y: e.clientY - 60} }));
+      ws.next(MouseAction.encode({ type: 'mouseclick', payload: {x: e.clientX, y: e.clientY} }));
     })
     return clicks;
   })

@@ -74,10 +74,15 @@ export interface Environment {
 const envSetup = (pageUrl: string) =>
   F.pipe(
     TE.bindTo('connection')(getPage(pageUrl)),
-    TE.bindW('ws', ({ connection }): TE.TaskEither<never, WebSocketSubject<unknown>> => TE.fromIO<never, WebSocketSubject<unknown>>(serverSocket(connection))),
-    TE.chainFirstW(({ connection }) => F.pipe(connection.DOMString, updatePage, TE.fromIOEither))
+    TE.bindW(
+      'ws',
+      ({ connection }): TE.TaskEither<never, WebSocketSubject<unknown>> =>
+        TE.fromIO<never, WebSocketSubject<unknown>>(serverSocket(connection)),
+    ),
+    TE.chainFirstW(({ connection }) =>
+      F.pipe(connection.DOMString, updatePage, TE.fromIOEither),
+    ),
   );
-
 // TODO : envTearDown
 
 const program = F.pipe(
@@ -93,15 +98,22 @@ const loadPageMain = (pageUrl: string) => F.pipe(
 )
 
 // load and start using a page
-export const loadPage = (pageUrl: string): Promise<void> => F.pipe(
-  pageUrl,
-  e => `/api/getpage/${encodeURIComponent(e)}`,
-  loadPageMain,
-  T.map(
-    E.fold(
-      console.error,
-      console.log
-    )
-  ),
-  invokeTask => invokeTask()
-)
+export const loadPage = (pageUrl: string): Promise<void> =>
+  F.pipe(
+    pageUrl,
+    e => {
+      // communicate with the Service Worker proxy
+    if (navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({
+        type: 'remoteUrl',
+        payload: pageUrl,
+        currenturl: document.location.origin
+      });
+    }
+      return e;
+    },
+    e => `/api/getpage/${encodeURIComponent(e)}`,
+    loadPageMain,
+    T.map(E.fold(console.error, console.log)),
+    invokeTask => invokeTask(),
+  );

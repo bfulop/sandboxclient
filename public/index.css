@@ -1,4 +1,4 @@
-body {
+#editorchrome {
   font-family: "Iosevka-Fixed-SS09";
   background-color: #edebe9;
   position: relative;
@@ -31,7 +31,7 @@ body {
   text-align: center;
 }
 
-#img {
+#editorchrome #img {
   display: block;
   margin: auto;
   height: 128px;
@@ -54,11 +54,4 @@ body {
   background-color: green;
   width: 5px;
   height: 5px;
-}
-
-iframe {
-  border: 1px dotted silver;
-  border-top: 2px solid #535f71;
-  width: 100%;
-  height: calc(100vh - 100px);
 }
