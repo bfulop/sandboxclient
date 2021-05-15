@@ -10,7 +10,7 @@ import { webSocket, WebSocketSubject } from 'rxjs/webSocket';
 import { domDiffFlow } from './domDiffs';
 import { mouseClicksFlow } from './mouseclicks';
 import { mouseMovementsFlow } from './mouseMoves';
-// import { windowScroll } from './windowScroll';
+import { windowScroll } from './windowScroll';
 import { LoadedPage } from './codecs';
 import { updatePage } from './updatePage';
 
@@ -90,7 +90,7 @@ const program = F.pipe(
   domDiffFlow,
   R.chain(() => mouseMovementsFlow),
   R.chain(() => mouseClicksFlow),
-  // R.chain(() => windowScroll),
+  R.chain(() => windowScroll),
 )
 
 const loadPageMain = (pageUrl: string) => F.pipe(

@@ -49,68 +49,23 @@ type DiffMessage = t.TypeOf<typeof DiffMessage>
 
 const MouseEventTypes = t.keyof({
   mousemoved: null,
-  mouseclick: null
+  mouseclick: null,
+  windowscroll: null,
+})
+
+const ActionCoords = t.type({
+  x: t.number,
+  y: t.number
 })
 
 const MouseAction = t.type({
   type: MouseEventTypes,
-  payload: t.type({
-    x: t.number,
-    y: t.number,
-  })
+  payload: ActionCoords
 });
 
 type MouseAction = t.TypeOf<typeof MouseAction>
 
-
-
-// const PosiveNumber = F.pipe(
-//   t.array(NumberStuff),
-//   t.brand(A.isNonEmpty, 'NonEmptyArray')
-//
-// )
-//   payload: t.type({
-//     x: t.number,
-//     y: t.number,
-//   })
-// });
-// const MouseClick = t.type({
-//   ...MouseAction.props,
-//   type: t.literal("MouseClick"),
-// });
-// const MouseMoved = t.type({
-//   ...MouseAction.props,
-//   type: t.literal("MouseMoved"),
-// });
-// const MouseActionU = t.union([MouseClick, MouseMoved]);
-//
-//   type: t.literal('MouseClick'),
-//   payload: t.type({
-//     x: t.number,
-//     y: t.number,
-//   })
-// });
-// const MouseMove = t.type({
-//   type: t.literal('MouseMove'),
-//   payload: t.type({
-//     x: t.number,
-//     y: t.number,
-//   })
-// });
-//
-// const MouseAction = t.union([MouseClick, MouseMove])
-//
-// type MouseAction = t.TypeOf<typeof MouseAction>
-
-const ScrollEvent = t.type({
-  type: t.literal('windowscroll'),
-  payload: t.type({
-    x: t.number,
-    y: t.number,
-  })
-})
-
-const UserEvent = t.union([MouseAction, ScrollEvent]);
+const UserEvent = MouseAction;
 type UserEvent = t.TypeOf<typeof UserEvent>
 
 const LoadedPage = t.type({
