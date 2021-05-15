@@ -10,6 +10,7 @@ import { webSocket, WebSocketSubject } from 'rxjs/webSocket';
 import { domDiffFlow } from './domDiffs';
 import { mouseClicksFlow } from './mouseclicks';
 import { mouseMovementsFlow } from './mouseMoves';
+// import { windowScroll } from './windowScroll';
 import { LoadedPage } from './codecs';
 import { updatePage } from './updatePage';
 
@@ -89,6 +90,7 @@ const program = F.pipe(
   domDiffFlow,
   R.chain(() => mouseMovementsFlow),
   R.chain(() => mouseClicksFlow),
+  // R.chain(() => windowScroll),
 )
 
 const loadPageMain = (pageUrl: string) => F.pipe(
@@ -97,22 +99,26 @@ const loadPageMain = (pageUrl: string) => F.pipe(
   TE.map(program)
 )
 
+function updateRequestRedirect(url: string): void {
+  // communicate with the Service Worker proxy
+  if (navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage({
+      type: 'remoteUrl',
+      payload: url,
+      currenturl: document.location.origin,
+    });
+  }
+}
+
 // load and start using a page
 export const loadPage = (pageUrl: string): Promise<void> =>
   F.pipe(
     pageUrl,
     e => {
-      // communicate with the Service Worker proxy
-    if (navigator.serviceWorker.controller) {
-      navigator.serviceWorker.controller.postMessage({
-        type: 'remoteUrl',
-        payload: pageUrl,
-        currenturl: document.location.origin
-      });
-    }
+      updateRequestRedirect(e);
       return e;
     },
-    e => `/api/getpage/${encodeURIComponent(e)}`,
+    e => `/api/getpage/?window[width]=${window.innerWidth}&window[height]=${window.innerHeight}&url=${encodeURIComponent(e)}`,
     loadPageMain,
     T.map(E.fold(console.error, console.log)),
     invokeTask => invokeTask(),

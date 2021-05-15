@@ -14,26 +14,26 @@ import { loadPage } from './index';
 
 const urlRegex = new RegExp(/(https?|ftp):\/\/[^\s/$.?#].[^\s]*$/m)
 
-const getURLInputElem: IOE.IOEither<{message: string}, HTMLInputElement> = () => F.pipe(
+const getURLInputElem: IOE.IOEither<{ message: string }, HTMLInputElement> = () => F.pipe(
   document.getElementById('gotourl'),
-  E.fromNullable({message: 'goto url input not found'}),
+  E.fromNullable({ message: 'goto url input not found' }),
   E.chain(e => {
     if (e instanceof HTMLInputElement) {
       return E.right(e);
     } else {
-      return E.left({message: 'url input element is not an input'})
+      return E.left({ message: 'url input element is not an input' })
     }
   })
 )
 
-const getGotoButtonElement: IOE.IOEither<{message: string}, HTMLButtonElement> = () => F.pipe(
+const getGotoButtonElement: IOE.IOEither<{ message: string }, HTMLButtonElement> = () => F.pipe(
   document.getElementById('gotourlbutton'),
-  E.fromNullable({message: 'goto url failed'}),
+  E.fromNullable({ message: 'goto url failed' }),
   E.chain(e => {
     if (e instanceof HTMLButtonElement) {
       return E.right(e);
     } else {
-      return E.left({message: 'goto button is not a button'})
+      return E.left({ message: 'goto button is not a button' })
     }
   })
 )
@@ -44,42 +44,45 @@ type validURL = string;
 const urlInputs = (
   urlInputElem: HTMLInputElement,
 ): IO.IO<ObservableEither<{ message: string }, validURL>> => () =>
-  F.pipe(
-    urlInputElem,
-    e => fromEvent<InputEvent>(e, 'input'),
-    r =>
-      F.pipe(
-        r,
-        OB.map(
-          (e): E.Either<{ message: string }, string> => {
-            if (e.target !== null && e.target instanceof HTMLInputElement) {
-              return E.right(e.target.value);
-            } else {
-              return E.left({ message: 'no event target' });
-            }
-          },
-        ),
-        OB.map(e =>
-          F.pipe(
-            e,
-            E.map(b => {
-              if (b.startsWith('http')) {
-                return b;
+
+    F.pipe(
+      urlInputElem,
+      e => fromEvent<InputEvent>(e, 'input'),
+      r =>
+        F.pipe(
+          r,
+          OB.map(
+            (e): E.Either<{ message: string }, string> => {
+              if (e.target !== null && e.target instanceof HTMLInputElement) {
+                return E.right(e.target.value);
+              } else {
+                return E.left({ message: 'no event target' });
               }
-              return `https://${b}`;
-            }),
-            E.chain(
-              E.fromPredicate(
-                e => urlRegex.test(e),
-                () => ({ message: 'not a valid url' }),
+            },
+          ),
+          OB.map(e =>
+            F.pipe(
+              e,
+              E.map(b => {
+                if (b.startsWith('http')) {
+                  return b;
+                }
+                return `https://${b}`;
+              }),
+              E.chain(
+                E.fromPredicate(
+                  e => urlRegex.test(e),
+                  () => ({ message: 'not a valid url' }),
+                ),
               ),
             ),
           ),
         ),
-      ),
-  );
+    );
+
 const buttonClicksObsIO = (button: HTMLButtonElement): IO.IO<Observable<Event>> => () => fromEvent(button, 'click');
 // when the url is _Right, let the 'clicks' through
+
 const handleUrlInputs = F.pipe(
   IOE.bindTo('urlInputElem')(getURLInputElem),
   IOE.bind('buttonElement', () => getGotoButtonElement),
@@ -116,6 +119,7 @@ const handleUrlInputs = F.pipe(
     ),
   ),
 );
+
 const mainApp = F.pipe(
   handleUrlInputs,
   IOE.fold(
@@ -125,12 +129,12 @@ const mainApp = F.pipe(
     r => () => {
       r.pipe(take$(1), 
         map$(
-        ([, url]) => {
-        console.log('should go to url', url);
-      })),
-      r.subscribe(([, url]) => {
-        loadPage(url);
-      })
+          ([, url]) => {
+            console.log('should go to url', url);
+          })),
+        r.subscribe(([, url]) => {
+          loadPage(url);
+        })
     }
   )
 )
