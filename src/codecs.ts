@@ -65,7 +65,18 @@ const MouseAction = t.type({
 
 type MouseAction = t.TypeOf<typeof MouseAction>
 
-const UserEvent = MouseAction;
+const FormAction = t.type({
+  type: t.literal('formaction'),
+  payload: t.type({
+    tagname: t.string,
+    index: t.number,
+    value: t.string
+  })
+})
+
+type FormAction = t.TypeOf<typeof FormAction>
+
+const UserEvent = t.union([MouseAction, FormAction]);
 type UserEvent = t.TypeOf<typeof UserEvent>
 
 const LoadedPage = t.type({
@@ -75,7 +86,7 @@ const LoadedPage = t.type({
 
 type LoadedPage = t.TypeOf<typeof LoadedPage>;
 
-export { DiffMessage, LoadedPage, MouseAction, UserEvent };
+export { DiffMessage, LoadedPage, MouseAction, FormAction, UserEvent };
 
 // ****************  SYSTEM EVENTS  ****************  
 

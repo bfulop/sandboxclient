@@ -13,6 +13,7 @@ import { mouseMovementsFlow } from './mouseMoves';
 import { windowScroll } from './windowScroll';
 import { LoadedPage } from './codecs';
 import { updatePage } from './updatePage';
+import { formEditFlow } from './formInput';
 
 // Error types
 type HttpRequestError = {
@@ -91,6 +92,7 @@ const program = F.pipe(
   R.chain(() => mouseMovementsFlow),
   R.chain(() => mouseClicksFlow),
   R.chain(() => windowScroll),
+  R.chain(() => formEditFlow),
 )
 
 const loadPageMain = (pageUrl: string) => F.pipe(
