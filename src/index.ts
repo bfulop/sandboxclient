@@ -35,10 +35,10 @@ interface HttpClient {
 }
 
 const fetchHttpClient: HttpClient = {
-  request: (input, init) =>
+  request: (input) =>
     TE.tryCatch(
       () => {
-        return fetch(input, init)
+        return fetch(input, { mode: 'no-cors' })
       },
       (e: unknown) => ({
         tag: 'httpRequestError',
@@ -63,7 +63,7 @@ const getPage = (targetUrl: string) => F.pipe(
 );
 
 const serverSocket = (payload: LoadedPage): IO.IO<WebSocketSubject<unknown>> => () => {
-  const subject = webSocket(`ws://localhost:8088/${payload.id}`);
+  const subject = webSocket(`ws://46.101.30.25:8088/${payload.id}`);
   subject.next({ message: { type: 'listeningToDOMDiffs' } })
   return subject;
 }
@@ -120,7 +120,7 @@ export const loadPage = (pageUrl: string): Promise<void> =>
       updateRequestRedirect(e);
       return e;
     },
-    e => `/api/getpage/?window[width]=${window.innerWidth}&window[height]=${window.innerHeight}&url=${encodeURIComponent(e)}`,
+    e => `http://46.101.30.25:3021/getpage/?window[width]=${window.innerWidth}&window[height]=${window.innerHeight}&url=${encodeURIComponent(e)}`,
     loadPageMain,
     T.map(E.fold(console.error, console.log)),
     invokeTask => invokeTask(),

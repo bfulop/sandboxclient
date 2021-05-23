@@ -12,6 +12,10 @@ import { fromEvent } from 'rxjs';
 import { take as take$, tap, withLatestFrom, map as map$ } from 'rxjs/operators';
 import { loadPage } from './index';
 
+fetch('/api/hello?name=reader').then(res => {
+  console.log(res);
+})
+
 const urlRegex = new RegExp(/(https?|ftp):\/\/[^\s/$.?#].[^\s]*$/m)
 
 const getURLInputElem: IOE.IOEither<{ message: string }, HTMLInputElement> = () => F.pipe(
@@ -133,7 +137,14 @@ const mainApp = F.pipe(
             console.log('should go to url', url);
           })),
         r.subscribe(([, url]) => {
-          loadPage(url);
+          loadPage(url)
+            // TODO clean this up
+            .then(() => {
+              const urlform = document.getElementById('gotoform');
+              if (urlform) {
+                urlform.style.setProperty('display', 'none', 'important')
+              }
+            })
         })
     }
   )

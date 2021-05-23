@@ -26,7 +26,7 @@ const config = {
     // {"match": "routes", "src": ".*", "dest": "/index.html"},
   ],
   packageOptions: {
-    "source": "remote",
+    // "source": "remote",
   },
   devOptions: {
     /* ... */

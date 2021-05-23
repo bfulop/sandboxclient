@@ -22,11 +22,21 @@ type CustomHTMLAttribute = Record<string, string>
 type headUpdated = 'headUpdated'
 type bodyUpdated = 'bodyUpdated'
 type bodyAttributesUpdated = 'bodyAttributesUpdated'
+type htmlClassUpdated = 'htmlClassUpdated'
+type classAttribute = string | null
 
-type PageComponents = [HTMLHeadElement, HTMLBodyElement, Array<CustomHTMLAttribute>];
+type PageComponents = [HTMLHeadElement, HTMLBodyElement, Array<CustomHTMLAttribute>, classAttribute];
 
+// TODO
 function updateBodyAttributes(): IO.IO<bodyAttributesUpdated> {
   return () => 'bodyAttributesUpdated';
+}
+
+function updateHTMLClasses(newHeadClass: classAttribute): IO.IO<htmlClassUpdated> {
+  if (document.documentElement.getAttribute('class') != newHeadClass) {
+    document.documentElement.setAttribute('class', newHeadClass || '');
+  }
+  return () => 'htmlClassUpdated';
 }
 
 function updateHead(newhead: HTMLHeadElement): IO.IO<headUpdated> {
@@ -69,28 +79,29 @@ function manageEditorUI(doc: Document): Document {
   return doc;
 }
 
-
 function pageComponents(doc: Document): IO.IO<PageComponents> {
-  const attributes = Array.from(doc.body.attributes).map(a => ({[a.name]: a.value}));
-  return () => ([doc.head, doc.body as HTMLBodyElement, attributes])
+  const attributes = Array.from(doc.body.attributes).map(a => ({ [a.name]: a.value }));
+  return () => ([doc.head, doc.body as HTMLBodyElement, attributes, doc.documentElement.getAttribute('class')])
 }
 
 function parseDomString(domString: string): IOE.IOEither<SimpleError, Document> {
   return IOE.tryCatch(
     () => parser.parseFromString(domString, 'text/html'),
-    () => ({message: 'could not parse dom'})
+    () => ({ message: 'could not parse dom' })
   )
 }
 
-const updatePageComponents = ([head, body]: PageComponents): IO.IO<[
+const updatePageComponents = ([head, body, , htmlCSSClass]: PageComponents): IO.IO<[
   headUpdated,
   bodyUpdated,
   bodyAttributesUpdated,
+  htmlClassUpdated
 ]> =>
   Apply.sequenceT(IO.Apply)(
     updateHead(head),
     updateBody(body),
     updateBodyAttributes(),
+    updateHTMLClasses(htmlCSSClass)
   );
 
 function updatePage(domString: string): IOE.IOEither<SimpleError, DOMpatched> {
@@ -104,10 +115,10 @@ function updatePage(domString: string): IOE.IOEither<SimpleError, DOMpatched> {
       IO.chain(updatePageComponents),
       IO.map(results => {
         const [head, body, attrs] = results;
-        if(head === 'headUpdated' && body === 'bodyUpdated' && attrs === 'bodyAttributesUpdated') {
-          return E.right(DOMpatched.encode({type: 'DOMpatched'}));
+        if (head === 'headUpdated' && body === 'bodyUpdated' && attrs === 'bodyAttributesUpdated') {
+          return E.right(DOMpatched.encode({ type: 'DOMpatched' }));
         } else {
-          return E.left({message: 'dom patch failed'})
+          return E.left({ message: 'dom patch failed' })
         }
       })
     ))
