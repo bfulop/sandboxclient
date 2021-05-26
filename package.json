@@ -30,7 +30,9 @@
     "fp-ts-rxjs": "^0.6.15",
     "io-ts": "^2.2.16",
     "io-ts-types": "^0.5.16",
+    "monocle-ts": "^2.3.10",
     "nanomorph": "^5.4.3",
+    "newtype-ts": "^0.3.4",
     "rxjs": "^6.6.7"
   }
 }
