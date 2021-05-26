@@ -2,11 +2,12 @@
   "name": "newhope",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "src/editorUI.ts",
   "type": "module",
   "scripts": {
     "dev": "snowpack dev",
-    "build": "snowpack build"
+    "snowpackbuild": "snowpack build",
+    "build": "rm -rf build && cp -a public build/ && esbuild src/editorUI.ts --bundle --format=esm --sourcemap --outfile=build/abtasty_sandboxed/editorUI.js"
   },
   "keywords": [],
   "author": "",
@@ -17,6 +18,7 @@
     "@typescript-eslint/eslint-plugin": "^4.23.0",
     "@typescript-eslint/parser": "^4.23.0",
     "@vercel/node": "^1.10.0",
+    "esbuild": "^0.9.7",
     "eslint": "^7.26.0",
     "http-proxy": "^1.18.1",
     "snowpack": "^3.4.0",
