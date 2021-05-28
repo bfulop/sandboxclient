@@ -1,6 +1,6 @@
 // const httpProxy = require('http-proxy');
 import httpProxy from 'http-proxy';
-const proxy = httpProxy.createServer({ target: 'http://localhost:3021' });
+const proxy = httpProxy.createServer({ target: 'http://localhost:8000' });
 
 const config = {
   optimize: {
@@ -17,7 +17,7 @@ const config = {
     {
       src: '/api/.*',
       dest: (req, res) => {
-        req.url = req.url.replace(/^\/api/, '');
+        // req.url = req.url.replace(/^\/api/, '');
         console.log('gonna proxy to', req.url)
         proxy.web(req, res);
       },
@@ -26,7 +26,7 @@ const config = {
     // {"match": "routes", "src": ".*", "dest": "/index.html"},
   ],
   packageOptions: {
-    // "source": "remote",
+    "source": "remote",
   },
   devOptions: {
     /* ... */

@@ -12,10 +12,6 @@ import { fromEvent } from 'rxjs';
 import { take as take$, tap, withLatestFrom, map as map$ } from 'rxjs/operators';
 import { loadPage } from './index';
 
-fetch('/api/hello?name=reader').then(res => {
-  console.log(res);
-})
-
 const urlRegex = new RegExp(/(https?|ftp):\/\/[^\s/$.?#].[^\s]*$/m)
 
 const getURLInputElem: IOE.IOEither<{ message: string }, HTMLInputElement> = () => F.pipe(

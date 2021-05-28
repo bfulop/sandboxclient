@@ -120,7 +120,7 @@ export const loadPage = (pageUrl: string): Promise<void> =>
       updateRequestRedirect(e);
       return e;
     },
-    e => `http://46.101.30.25:3021/getpage/?window[width]=${window.innerWidth}&window[height]=${window.innerHeight}&url=${encodeURIComponent(e)}`,
+    e => `/api/getpage/?window[width]=${window.innerWidth}&window[height]=${window.innerHeight}&url=${encodeURIComponent(e)}`,
     loadPageMain,
     T.map(E.fold(console.error, console.log)),
     invokeTask => invokeTask(),
