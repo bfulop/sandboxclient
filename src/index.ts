@@ -63,7 +63,7 @@ const getPage = (targetUrl: string) => F.pipe(
 );
 
 const serverSocket = (payload: LoadedPage): IO.IO<WebSocketSubject<unknown>> => () => {
-  const subject = webSocket(`ws://46.101.30.25:8088/${payload.id}`);
+  const subject = webSocket(`wss://abundance-design.fr:8088/${payload.id}`);
   subject.next({ message: { type: 'listeningToDOMDiffs' } })
   return subject;
 }
