@@ -1,24 +1,21 @@
-# New Project
+# Sandboxed Renderer Client Component
 
-> ✨ Bootstrapped with Create Snowpack App (CSA).
+This is the client side viewer of the [sandboxed server](https://github.com/bfulop/sandbox_render_server/)
 
-## Available Scripts
+## Goals
 
-### npm start
+1. learn and practice fp-ts and functional programming techniques
+2. Render any website in a client app without receiving any of the original JavaScript 
 
-Runs the app in the development mode.
-Open http://localhost:8080 to view it in the browser.
+## Architecture diagrams
 
-The page will reload if you make edits.
-You will also see any lint errors in the console.
 
-### npm run build
+![6-user-events](https://user-images.githubusercontent.com/1718128/126048878-6b2c8679-5e38-43ea-9f64-cb9afa3f650e.png)
 
-Builds a static copy of your site to the `build/` folder.
-Your app is ready to be deployed!
 
-**For the best production performance:** Add a build bundler plugin like [@snowpack/plugin-webpack](https://github.com/snowpackjs/snowpack/tree/main/plugins/plugin-webpack) or [snowpack-plugin-rollup-bundle](https://github.com/ParamagicDev/snowpack-plugin-rollup-bundle) to your `snowpack.config.json` config file.
+![2-dom-insertion](https://user-images.githubusercontent.com/1718128/126048888-cfa02b66-5934-428a-84af-c42e7ef5936d.png)
 
-### Q: What about Eject?
 
-No eject needed! Snowpack guarantees zero lock-in, and CSA strives for the same.
+![4-dom-updates](https://user-images.githubusercontent.com/1718128/126048918-47fa7d4c-f9d4-46d2-ac66-07a2d71e4e77.png)
+
+![5-assets](https://user-images.githubusercontent.com/1718128/126048920-c5dbd604-46eb-47d2-98bb-bccb99fe2a16.png)
