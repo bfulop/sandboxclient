@@ -1,5 +1,7 @@
 # Sandboxed Renderer Client Component
 
+See a [video demo](https://www.youtube.com/watch?v=a8Fpy4dadf0)
+
 This is the client side viewer of the [sandboxed server](https://github.com/bfulop/sandbox_render_server/)
 
 ## Goals
