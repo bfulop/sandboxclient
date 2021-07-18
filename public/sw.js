@@ -1,5 +1,8 @@
+// @ts-check
+
 self.addEventListener('install', function(event) {
-  console.log('Service Worker Installed new version 7');
+  console.log('Service Worker Installed new version 8');
+  const cacheName = 'abtasty_sandboxed';
   event.waitUntil(
     caches.open('v2').then((cache) => {
       return cache.addAll([
@@ -61,7 +64,11 @@ addEventListener('fetch', event => {
   if (shouldProxyAsset(request)) {
     const redirect = new Request(request.url.replace(localUrl, remoteUrl.origin));
     const externalAsset = fetch(redirect, { mode: 'no-cors' });
-    event.respondWith(externalAsset);
+    event.respondWith(externalAsset)
+    .catch(e => {
+      console.log('redirection not successful');
+      console.warn(e);
+    });
     return;
   }
 

@@ -6,25 +6,7 @@
     <title>Snowpack App</title>
   </head>
   <body>
-    <script>
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('./sw.js', {scope: './'})
-          .then((reg) => {
-            // registration worked
-            console.log('Registration succeeded. Scope is ' + reg.scope);
-            if(reg.installing) {
-              console.log('Service worker installing');
-            } else if(reg.waiting) {
-              console.log('Service worker installed');
-            } else if(reg.active) {
-              console.log('Service worker active');
-            }
-          }).catch((error) => {
-            // registration failed
-            console.log('Registration failed with ' + error);
-          });
-      }
-    </script>
+    
     <script type="module" src="./abtasty_sandboxed/editorUI.js"></script>
     <div id="editorchrome">
       <div id="pointer-local"> </div>
@@ -34,7 +16,37 @@
       </div>
       <link rel="stylesheet" type="text/css" href="./index.css">
     </div>
-  
+    <h2>WIP !</h2>
+    <h1>Please keep your devtools open when reloading the page. I'm still fine tuning the service workers proxying.</h1>
+    <p>It's necessary to proxy static assets from the source page.</p>
+    <h2>Service Worker Status:</h2>
+    <h3 id="serviceworkerstatus">Service Worker installation waiting...<h3>
+<script>
+      if ('serviceWorker' in navigator) {
+        const view = document.getElementById('serviceworkerstatus')
+        navigator.serviceWorker.register('./sw.js', {scope: './'})
+          .then((reg) => {
+            // registration worked
+            console.log('Registration succeeded. Scope is ' + reg.scope);
+            view.textContent = 'Registration succeeded. Scope is ' + reg.scope;
+            view.textContent = 'Registration succeeded. Scope is ' + reg.scope;
+            if(reg.installing) {
+              console.log('Service worker installing');
+              view.textContent = 'Service worker installing';
+            } else if(reg.waiting) {
+              console.log('Service worker installed');
+              view.textContent = 'Service worker installed';
+            } else if(reg.active) {
+              console.log('Service worker active');
+              view.textContent = 'Service worker active';
+            }
+          }).catch((error) => {
+            // registration failed
+            console.log('Registration failed with ' + error);
+            view.textContent = 'Registration failed';
+          });
+      }
+    </script>  
 
 
 </body></html>
